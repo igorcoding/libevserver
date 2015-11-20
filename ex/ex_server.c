@@ -26,8 +26,16 @@ static void on_conn_close(evsrv_conn* conn, int err) {
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    printf("%.*s", (int) nread, conn->rbuf + (conn->ruse - (int) nread));
-    evsrv_write(conn, "hello, there!\n", 0);
+    const char* buf = conn->rbuf + (conn->ruse - (int) nread);
+    const char* end = conn->rbuf + conn->ruse;
+
+//    printf("%.*s", (int) nread, buf);
+    evsrv_write(conn, buf, (size_t) nread);
+
+    conn->ruse = (uint32_t) (end - buf);
+    if (conn->ruse > 0) {
+        memmove(conn->rbuf, buf, conn->ruse);
+    }
 }
 
 int main() {
@@ -35,13 +43,14 @@ int main() {
     evsrv_init(&srv);
 
     srv.host = "127.0.0.1";
-    srv.port = 9090;
+    srv.port = "9090";
+    srv.backlog = 500;
     srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;
     srv.on_conn_close = (c_cb_conn_close_t) on_conn_close;
     srv.on_read = (c_cb_read_t) on_read;
 
     if (evsrv_listen(&srv) != -1) {
-        printf("Started demo server at %s:%u\n", srv.host, srv.port);
+        printf("Started demo server at %s:%s\n", srv.host, srv.port);
         evsrv_accept(&srv);
         evsrv_run(&srv);
     }

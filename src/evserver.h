@@ -48,7 +48,7 @@ typedef struct {
     c_cb_read_t on_read;
 
     char* host;
-    short unsigned int port;
+    char* port;
     uint32_t rlen;
 
     time_t now;

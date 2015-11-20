@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/uio.h>
 #include <arpa/inet.h>
+#include <sys/un.h>
 
 #include "evserver.h"
 
@@ -66,8 +67,39 @@ void evsrv_clean(evsrv* self) {
 }
 
 int evsrv_listen(evsrv* self) {
-    struct sockaddr_in serv_addr;
-    int sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+
+    struct sockaddr* sock_addr;
+    socklen_t sock_len;
+    if (strncasecmp(self->host, "unix:", 5) == 0) { // unix domain socket
+        struct sockaddr_un serv_addr;
+
+
+        bzero((char*) &serv_addr, sizeof(serv_addr));
+        serv_addr.sun_family = AF_UNIX;
+        size_t path_len = strlen(self->port);
+        if (path_len >= 108) {
+            cwarn("Too long unix socket path");
+            return -1;
+        }
+        strncpy(serv_addr.sun_path, self->port, path_len);
+        serv_addr.sun_path[path_len] = '\0';
+
+        sock_addr = (struct sockaddr*) &serv_addr;
+        sock_len = sizeof(serv_addr);
+
+    } else { // ipv4 socket
+        struct sockaddr_in serv_addr;
+
+        bzero((char*) &serv_addr, sizeof(serv_addr));
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_addr.s_addr = inet_addr(self->host);
+        serv_addr.sin_port = htons((uint16_t) atoi(self->port));
+
+        sock_addr = (struct sockaddr*) &serv_addr;
+        sock_len = sizeof(serv_addr);
+    }
+
+    int sockfd = socket(sock_addr->sa_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
     if (sockfd < 0) {
         cerror("Error creating socket");
@@ -80,13 +112,7 @@ int evsrv_listen(evsrv* self) {
         return -1;
     }
 
-    bzero((char*) &serv_addr, sizeof(serv_addr));
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = inet_addr(self->host);
-    serv_addr.sin_port = htons(self->port);
-
-    if (bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
+    if (bind(sockfd, sock_addr, sock_len) < 0) {
         cerror("Bind error");
         return -1;
     }
@@ -143,11 +169,11 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
     self->connections[conn_info->sock] = conn;
 
     ev_io_init(&conn->rw, _evsrv_conn_read_cb, conn->info->sock, EV_READ);
-    ev_io_start(self->loop, &conn->rw);
+    ev_io_start(loop, &conn->rw);
 
     if (unlikely(self->read_timeout > 0)) {
         ev_timer_init(&conn->trw, _evsrv_conn_read_timeout_cb, self->read_timeout, 0);
-        ev_timer_start(self->loop, &conn->trw);
+        ev_timer_start(loop, &conn->trw);
     }
 
     if (likely(self->write_timeout > 0)) {
@@ -187,7 +213,29 @@ void evsrv_conn_stop(evsrv_conn* self) {
     if (ev_is_active(&self->rw)) {
         ev_io_stop(self->srv->loop, &self->rw);
     }
+
+    if (ev_is_active(&self->tww)) {
+        ev_timer_stop(self->srv->loop, &self->tww);
+    }
+
+    if (ev_is_active(&self->ww)) {
+        ev_io_stop(self->srv->loop, &self->ww);
+    }
 }
+
+//void evsrv_conn_close_socket(evsrv_conn* self, int err) {
+//    if (err != 0) {
+//        struct linger linger = { 0 };
+//
+//        linger.l_onoff = 1;
+//        linger.l_linger = 0;
+//        setsockopt(self->info->sock, SOL_SOCKET, SO_LINGER, (const char *) &linger, (socklen_t) sizeof(linger));
+//    }
+//    if (self->info->sock > -1) {
+//        close(self->info->sock);
+//        self->info->sock = -1;
+//    }
+//}
 
 void evsrv_conn_clean(evsrv_conn* self) {
     if (self->info->sock > -1) {
@@ -211,7 +259,6 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     evsrv* srv = self->srv;
 
     evsrv_conn_stop(self);
-
     if (self->srv->on_conn_close) {
         self->srv->on_conn_close(self, err);
     } else {
@@ -221,6 +268,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
         }
     }
 
+    cwarn("deleted conn");
     if (sock > 0) {
         srv->connections[sock] = NULL;
     }
@@ -294,7 +342,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
     }
     evsrv_conn* self = dSELFby(w, evsrv_conn, rw);
 
-    ev_timer_stop(self->srv->loop, &self->trw);
+    ev_timer_stop(loop, &self->trw);
 
     ssize_t nread;
     again:
@@ -307,7 +355,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                 if (self->ruse == self->rlen) {
                     evsrv_conn_close(self, ENOBUFS);
                 } else {
-                    ev_timer_again(self->srv->loop, &self->trw);
+                    ev_timer_again(loop, &self->trw);
                 }
             }
 
@@ -323,8 +371,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     return;
             }
         } else {
-            cwarn("read EOF");
-            ev_io_stop(self->srv->loop, w);
+            cerror("read EOF");
             --self->srv->active_connections;
             evsrv_conn_close(self, errno);
         }
@@ -337,7 +384,7 @@ void _evsrv_conn_read_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents)
     }
     evsrv_conn* self = dSELFby(w, evsrv_conn, trw);
 
-    ev_timer_stop(self->srv->loop, &self->trw);
+    ev_timer_stop(loop, &self->trw);
     cwarn("read timer triggered");
     evsrv_conn_close(self, errno);
 }
@@ -349,15 +396,13 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
     }
     evsrv_conn* self = dSELFby(w, evsrv_conn, ww);
 
-    ev_timer_stop(self->srv->loop, &self->tww);
+    ev_timer_stop(loop, &self->tww);
 
     ssize_t wr;
     int iovcur, iov_total = 0;
     struct iovec *iov;
 
     //cwarn("on ww io %p -> %p (fd: %d) [ wbufs: %d of %d ]", w, self, w->fd, self->wuse, self->wlen);
-
-    ev_timer_stop(self->srv->loop, &self->tww);
 
     struct iovec *head_ptr = self->wbuf;
 
@@ -411,7 +456,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
                 self->wuse -= iov_total + iovcur;
                 // cwarn("partially %p -> %p / %d", self->wbuf + iov_total + iovcur, self->wbuf, iov_total + iovcur);
                 memmove(self->wbuf, self->wbuf + iov_total + iovcur, self->wuse * sizeof(struct iovec));
-                ev_timer_again(self->srv->loop, &self->tww ); // written not all, so restart timer
+                ev_timer_again(loop, &self->tww ); // written not all, so restart timer
                 return;
             }
 
@@ -421,7 +466,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
                 case EINTR:
                     goto again;
                 case EAGAIN:
-                    ev_timer_again(self->srv->loop, &self->tww);
+                    ev_timer_again(loop, &self->tww);
                     return;
                 case EINVAL:
                     // einval may be a result only of corruption. dump a core is better than hangover
@@ -443,7 +488,7 @@ void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents
     }
     evsrv_conn* self = dSELFby(w, evsrv_conn, tww);
 
-    ev_timer_stop(self->srv->loop, &self->tww);
+    ev_timer_stop(loop, &self->tww);
     cwarn("write timer triggered");
     evsrv_conn_close(self, errno);
 }
