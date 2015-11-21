@@ -11,8 +11,8 @@ use EV;
 my $host = '127.0.0.1';
 my $port = 9090;
 
-my $parallel = 10;
-my $count = 2000;
+my $parallel = 100;
+my $count = 10000;
 
 my $msg = "1234567890";
 
@@ -43,7 +43,7 @@ sub main {
 			chunk => length($msg),
 			sub {
 
-				return $ccb->() unless $i <= $count;
+				return $ccb->() unless $i <= $count / $parallel;
 				my $resp = $_[1];
 				if ($resp ne $msg) {
 					die "resp is invalid: \"$resp\" vs \"$msg\"";
@@ -82,7 +82,7 @@ main(sub {
 $cv->recv;
 
 my $run = time - $start;
-my $per_th = $count / $run;
-my $total = $count * $parallel / $run;
+my $per_th = $count / $parallel / $run;
+my $total = $count / $run;
 warn "[rps] per_thread: $per_th; total: $total";
 

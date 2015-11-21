@@ -16,24 +16,24 @@ typedef enum {
     EVSRV_LISTENING,
     EVSRV_ACCEPTING,
     EVSRV_STOPPED
-} state_t;
+} evsrv_state_t;
 
 typedef struct {
     int sock;
 
 } evsrv_conn_info;
 
-struct _evsrv_conn;
+typedef struct _evsrv_conn evsrv_conn;
 
-typedef void (*c_cb_started_t)(void*);
-typedef struct _evsrv_conn* (* c_cb_conn_create_t)(void*, evsrv_conn_info*);
-typedef void (* c_cb_conn_ready_t)(struct _evsrv_conn*);
-typedef void (* c_cb_conn_close_t)(struct _evsrv_conn*, int err);
-typedef void (*c_cb_read_t)(struct _evsrv_conn*, ssize_t);
+typedef void (* c_cb_started_t)(void*);
+typedef evsrv_conn* (* c_cb_conn_create_t)(void*, evsrv_conn_info*);
+typedef void (* c_cb_conn_ready_t)(evsrv_conn*);
+typedef void (* c_cb_conn_close_t)(evsrv_conn*, int err);
+typedef void (* c_cb_read_t)(evsrv_conn*, ssize_t);
 
 typedef struct {
     struct ev_loop* loop;
-    state_t state;
+    evsrv_state_t state;
 
     int sock;
     int backlog;
@@ -56,7 +56,7 @@ typedef struct {
     time_t now;
     int active_connections;
 
-    struct _evsrv_conn** connections;
+    evsrv_conn** connections;
     size_t connections_len;
 } evsrv;
 
@@ -92,11 +92,12 @@ struct _evsrv_conn {
     c_cb_read_t on_read;
 };
 
-typedef struct _evsrv_conn evsrv_conn;
+
 
 void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info);
 void evsrv_conn_stop(evsrv_conn* self);
 void evsrv_conn_clean(evsrv_conn* self);
+void evsrv_conn_shutdown(evsrv_conn* self, int how);
 void evsrv_conn_close(evsrv_conn* self, int err);
 
 void evsrv_write(evsrv_conn* conn, const char* buf, size_t len);

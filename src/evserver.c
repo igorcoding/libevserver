@@ -32,6 +32,7 @@ static void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents);
 static void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents);
 
 
+/*************************** evsrv ***************************/
 
 void evsrv_init(evsrv* self) {
     self->loop = EV_DEFAULT;
@@ -131,10 +132,10 @@ int evsrv_listen(evsrv* self) {
         return -1;
     }
 
-//    if (setsockopt(self->sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0) {
-//        cerror("Error setting socket options");
-//        return -1;
-//    }
+   if (setsockopt(self->sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0) {
+       cerror("Error setting socket options");
+       return -1;
+   }
 
     struct linger linger = { 0, 0 };
     if (setsockopt(self->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
@@ -261,6 +262,10 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     self->wbuf = NULL;
 
     fcntl(self->info->sock, F_SETFL, fcntl(self->info->sock, F_GETFL, 0) | O_NONBLOCK);
+    struct linger linger = { 0, 0 };
+    if (setsockopt(self->info->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
+        cerror("Error setting socket options");
+    }
 }
 
 void evsrv_conn_stop(evsrv_conn* self) {
@@ -284,7 +289,7 @@ void evsrv_conn_stop(evsrv_conn* self) {
 
 void evsrv_conn_clean(evsrv_conn* self) {
     if (self->info->sock > -1) {
-        shutdown(self->info->sock, SHUT_RDWR);
+        close(self->info->sock);
         self->info->sock = -1;
     }
 
@@ -306,6 +311,12 @@ void evsrv_conn_clean(evsrv_conn* self) {
     self->srv = NULL;
 }
 
+void evsrv_conn_shutdown(evsrv_conn* self, int how) {
+    if (self->info->sock > -1) {
+        shutdown(self->info->sock, how);
+    }
+}
+
 void evsrv_conn_close(evsrv_conn* self, int err) {
     int sock = self->info->sock;
     evsrv* srv = self->srv;
@@ -325,6 +336,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     if (sock > 0) {
         srv->connections[sock] = NULL;
     }
+    --srv->active_connections;
 }
 
 void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
@@ -369,9 +381,8 @@ void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
                         break;
                     default:
                         cerror("connection failed while write [now]");
+                        evsrv_conn_shutdown(conn, SHUT_RDWR);
                         evsrv_conn_close(conn, errno);
-                        // cnntrace(self, "connection failed while write [now]: %s", strerror(errno));
-                        // on_connect_reset(self,errno,NULL);
                         return;
                 }
             }
@@ -409,7 +420,8 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
             if (self->on_read) {
                 self->on_read(self, nread);
             }
-            if (self->ruse == self->rlen) {
+            if (self->ruse != 0 &&  self->ruse == self->rlen) {
+                evsrv_conn_shutdown(self, SHUT_RDWR);
                 evsrv_conn_close(self, ENOBUFS);
             }
 
@@ -421,16 +433,15 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     goto again;
                 default:
                     cerror("read error");
-                    --self->srv->active_connections;
+                    evsrv_conn_shutdown(self, SHUT_RDWR);
                     evsrv_conn_close(self, errno);
                     return;
             }
         } else {
-//            cerror("read EOF");
+            // cerror("read EOF");
             if (self->on_read) {
                 self->on_read(self, 0);
             }
-            --self->srv->active_connections;
             evsrv_conn_close(self, errno);
         }
 }
@@ -444,6 +455,7 @@ void _evsrv_conn_read_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents)
 
     ev_timer_stop(loop, &self->trw);
     cwarn("read timer triggered");
+    evsrv_conn_shutdown(self, SHUT_RDWR);
     evsrv_conn_close(self, errno);
 }
 
@@ -535,6 +547,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     abort();
                 default:
                     cerror("connection failed while write [io]");
+                    evsrv_conn_shutdown(self, SHUT_RDWR);
                     evsrv_conn_close(self, errno);
                     return;
             }
@@ -552,6 +565,7 @@ void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents
 
     ev_timer_stop(loop, &self->tww);
     cwarn("write timer triggered");
+    evsrv_conn_shutdown(self, SHUT_RDWR);
     evsrv_conn_close(self, errno);
 }
 
