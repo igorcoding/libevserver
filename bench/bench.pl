@@ -1,5 +1,6 @@
 use strict;
 use 5.010;
+use warnings;
 use AnyEvent;
 use AnyEvent::Handle;
 use AnyEvent::Socket;
@@ -10,14 +11,16 @@ use EV;
 my $host = '127.0.0.1';
 my $port = 9090;
 
-my $parallel = 10;
-my $count = 100;
+my $parallel = 100;
+my $count = 1000;
 
-my $msg = "oiwejwoeifjwoeifwoenew";
+my $msg = "1234567890";
+
+warn length($msg);
 
 sub main {
 	my $cb = pop;
-	
+
 	my $finished = 0;
 	my $finish_cb = sub {
 		++$finished;
@@ -25,21 +28,21 @@ sub main {
 			$cb->();
 		}
 	};
-	
+
 	my $do; $do = sub {
 		my $do = $do or return;
 		my ($p, $iow, $i) = @_;
-		
+
 		my $ccb = sub {
 			close $iow->fh;
 			$finish_cb->();
 		};
-		
+
 		$iow->push_write($msg);
 		$iow->push_read(
 			chunk => length($msg),
 			sub {
-				
+
 				return $ccb->() unless $i <= $count;
 				my $resp = $_[1];
 				if ($resp ne $msg) {
@@ -51,7 +54,7 @@ sub main {
 		);
 	};
 	for my $p (0..$parallel-1) {
-		
+
 		tcp_connect $host, $port, sub {
 			my ($fh) = @_ or die "connect failed: $!";
 
@@ -64,7 +67,7 @@ sub main {
 					# $destroy->();
 				},
 			);
-			
+
 			$do->($p, $iow, 1);
 		};
 	}

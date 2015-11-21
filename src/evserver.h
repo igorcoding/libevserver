@@ -3,6 +3,7 @@
 
 #include <ev.h>
 #include <stdint.h>
+#include <arpa/inet.h>
 
 #include "util.h"
 
@@ -49,7 +50,8 @@ typedef struct {
 
     char* host;
     char* port;
-    uint32_t rlen;
+    struct sockaddr* sock_addr;
+    socklen_t sock_addr_len;
 
     time_t now;
     int active_connections;

@@ -2,6 +2,7 @@
 
 #include <evserver.h>
 #include <stdlib.h>
+#include <stddef.h>
 
 typedef struct {
     evsrv_conn conn;
@@ -22,20 +23,41 @@ static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
 static void on_conn_close(evsrv_conn* conn, int err) {
     my_conn* c = (my_conn*) conn;
     evsrv_conn_clean(&c->conn);
+    free(c->conn.rbuf);
+    c->conn.rbuf = NULL;
     free(c);
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    const char* buf = conn->rbuf + (conn->ruse - (int) nread);
-    const char* end = conn->rbuf + conn->ruse;
+    char* rbuf = conn->rbuf;
+    char* end = rbuf + conn->ruse;
 
-//    printf("%.*s", (int) nread, buf);
-    evsrv_write(conn, buf, (size_t) nread);
+    size_t size = 10;
 
-    conn->ruse = (uint32_t) (end - buf);
-    if (conn->ruse > 0) {
-        memmove(conn->rbuf, buf, conn->ruse);
+    while (rbuf < end) {
+        ptrdiff_t buf_len = end - rbuf;
+        if (buf_len < size) {
+            break;
+        }
+
+        evsrv_write(conn, rbuf, size);
+        rbuf += size;
+
+        if (rbuf == end) {
+            conn->ruse = 0;
+            break;
+        }
     }
+
+    // printf("%.*s", (int) nread, buf);
+    conn->ruse = (uint32_t) (end - rbuf);
+    if (conn->ruse > 0) {
+        memmove(conn->rbuf, rbuf, conn->ruse);
+    }
+}
+
+void on_started(evsrv* srv) {
+    printf("Started demo server at %s:%s\n", srv->host, srv->port);
 }
 
 int main() {
@@ -45,12 +67,13 @@ int main() {
     srv.host = "127.0.0.1";
     srv.port = "9090";
     srv.backlog = 500;
+    srv.write_timeout = 0.0;
+    srv.on_started = (c_cb_started_t) on_started;
     srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;
     srv.on_conn_close = (c_cb_conn_close_t) on_conn_close;
     srv.on_read = (c_cb_read_t) on_read;
 
     if (evsrv_listen(&srv) != -1) {
-        printf("Started demo server at %s:%s\n", srv.host, srv.port);
         evsrv_accept(&srv);
         evsrv_run(&srv);
     }
