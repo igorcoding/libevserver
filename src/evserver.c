@@ -170,50 +170,69 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
         return;
     }
 
-    evsrv_conn_info* conn_info = (evsrv_conn_info*) malloc(sizeof(evsrv_conn_info));
+    while (1) {
 
-    struct sockaddr_in conn_addr;
-    socklen_t conn_len = sizeof(conn_addr);
+        struct sockaddr_in conn_addr;
+        socklen_t conn_len = sizeof(conn_addr);
 
-    conn_info->sock = accept(w->fd, (struct sockaddr*) &conn_addr, &conn_len);
+        int conn_sock;
 
-    if (conn_info->sock < 0) {
-        cerror("accept error");
-        return;
+        again:
+        conn_sock = accept(w->fd, (struct sockaddr*) &conn_addr, &conn_len);
+
+        if (conn_sock < 0) {
+            switch (errno) {
+                case EAGAIN:
+                    return;
+                case EINTR:
+                    goto again;
+                default:
+                    cerror("accept error");
+                    break;
+            }
+            return;
+        }
+
+        evsrv_conn_info* conn_info = (evsrv_conn_info*) malloc(sizeof(evsrv_conn_info));
+        conn_info->sock = conn_sock;
+        ++self->active_connections;
+
+        evsrv_conn* conn = NULL;
+        if (self->on_conn_create) {
+            conn = self->on_conn_create(self, conn_info);
+        } else {
+            conn = (evsrv_conn*) malloc(sizeof(evsrv_conn));
+            evsrv_conn_init(conn, self, conn_info);
+            conn->on_read = self->on_read;
+            conn->rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
+            conn->rlen = EVSRV_DEFAULT_BUF_LEN;
+        }
+
+        if (unlikely(self->connections[conn_info->sock] != NULL)) {
+            evsrv_conn_stop(self->connections[conn_info->sock]);
+            evsrv_conn_clean(self->connections[conn_info->sock]);
+        }
+        self->connections[conn_info->sock] = conn;
+
+        ev_io_init(&conn->rw, _evsrv_conn_read_cb, conn->info->sock, EV_READ);
+        ev_io_start(loop, &conn->rw);
+
+        ev_timer_init(&conn->trw, _evsrv_conn_read_timeout_cb, self->read_timeout, 0);
+        if (unlikely(self->read_timeout > 0)) {
+            ev_timer_start(loop, &conn->trw);
+        }
+
+        ev_io_init(&conn->ww, _evsrv_conn_write_cb, conn->info->sock, EV_WRITE);
+        ev_timer_init(&conn->tww, _evsrv_conn_write_timeout_cb, self->write_timeout, 0);
+
+        if (self->on_conn_ready) {
+            self->on_conn_ready(conn);
+        }
     }
-    ++self->active_connections;
+}
 
-    evsrv_conn* conn = NULL;
-    if (self->on_conn_create) {
-        conn = self->on_conn_create(self, conn_info);
-    } else {
-        conn = (evsrv_conn*) malloc(sizeof(evsrv_conn));
-        evsrv_conn_init(conn, self, conn_info);
-        conn->on_read = self->on_read;
-        conn->rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
-        conn->rlen = EVSRV_DEFAULT_BUF_LEN;
-    }
-
-    if (unlikely(self->connections[conn_info->sock] != NULL)) {
-        evsrv_conn_stop(self->connections[conn_info->sock]);
-        evsrv_conn_clean(self->connections[conn_info->sock]);
-    }
-    self->connections[conn_info->sock] = conn;
-
-    ev_io_init(&conn->rw, _evsrv_conn_read_cb, conn->info->sock, EV_READ);
-    ev_io_start(loop, &conn->rw);
-
-    ev_timer_init(&conn->trw, _evsrv_conn_read_timeout_cb, self->read_timeout, 0);
-    if (unlikely(self->read_timeout > 0)) {
-        ev_timer_start(loop, &conn->trw);
-    }
-
-    ev_io_init(&conn->ww, _evsrv_conn_write_cb, conn->info->sock, EV_WRITE);
-    ev_timer_init(&conn->tww, _evsrv_conn_write_timeout_cb, self->write_timeout, 0);
-
-    if (self->on_conn_ready) {
-        self->on_conn_ready(conn);
-    }
+void evsrv_notify_fork_child(evsrv* self) {
+    ev_loop_fork(self->loop);
 }
 
 void evsrv_run(evsrv* self) {
@@ -222,6 +241,8 @@ void evsrv_run(evsrv* self) {
     }
     ev_run(self->loop, 0);
 }
+
+
 
 
 
@@ -326,7 +347,7 @@ void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
 
     if (conn->wnow) {
         again:
-            wr = write(conn->ww.fd, buf, len );
+            wr = write(conn->ww.fd, buf, len);
             // cwarn("writing %d",len);
             if ( wr == len ) {
                 // success
@@ -377,21 +398,19 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
 
     evsrv_conn* self = dSELFby(w, evsrv_conn, rw);
 
-    ev_timer_stop(loop, &self->trw);
+    evsrv_stop_timer(loop, &self->trw);
 
     ssize_t nread;
     again:
-        nread = recv(w->fd, self->rbuf + self->ruse, self->rlen - self->ruse, 0);
+        nread = read(w->fd, self->rbuf + self->ruse, self->rlen - self->ruse);
         if (nread > 0) {
             self->ruse += nread;
 
             if (self->on_read) {
                 self->on_read(self, nread);
-                if (self->ruse == self->rlen) {
-                    evsrv_conn_close(self, ENOBUFS);
-                } else {
-                    ev_timer_stop(loop, &self->trw);
-                }
+            }
+            if (self->ruse == self->rlen) {
+                evsrv_conn_close(self, ENOBUFS);
             }
 
         } else if (nread < 0) {
@@ -435,7 +454,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
     }
     evsrv_conn* self = dSELFby(w, evsrv_conn, ww);
 
-    ev_timer_stop(loop, &self->tww);
+    evsrv_stop_timer(loop, &self->tww);
 
     ssize_t wr;
     int iovcur, iov_total = 0;

@@ -11,8 +11,8 @@ use EV;
 my $host = '127.0.0.1';
 my $port = 9090;
 
-my $parallel = 100;
-my $count = 1000;
+my $parallel = 10;
+my $count = 2000;
 
 my $msg = "1234567890";
 

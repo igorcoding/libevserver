@@ -64,6 +64,7 @@ void evsrv_init(evsrv* self);
 void evsrv_clean(evsrv* self);
 int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);
+void evsrv_notify_fork_child(evsrv* self);
 void evsrv_run(evsrv* self);
 
 
@@ -100,5 +101,11 @@ void evsrv_conn_close(evsrv_conn* self, int err);
 
 void evsrv_write(evsrv_conn* conn, const char* buf, size_t len);
 
+
+#define evsrv_stop_timer(loop, ev) do { \
+    if (ev_is_active(ev)) { \
+        ev_timer_stop(loop, ev); \
+    } \
+} while (0)
 
 #endif //LIBEVSERVER_EVSERVER_H

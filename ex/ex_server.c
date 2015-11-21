@@ -3,6 +3,7 @@
 #include <evserver.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <unistd.h>
 
 typedef struct {
     evsrv_conn conn;
@@ -74,8 +75,26 @@ int main() {
     srv.on_read = (c_cb_read_t) on_read;
 
     if (evsrv_listen(&srv) != -1) {
-        evsrv_accept(&srv);
-        evsrv_run(&srv);
+//        evsrv_accept(&srv);
+//        evsrv_run(&srv);
+        int max_childs = 4;
+        for (int i = 0; i < max_childs; ++i) {
+            pid_t pid = fork();
+            if (pid > 0) {
+                // master
+
+            } else if (pid == 0) {
+                // child
+                evsrv_notify_fork_child(&srv);
+                evsrv_accept(&srv);
+                evsrv_run(&srv);
+                break;
+            } else {
+                // error
+                perror("fork failed");
+                break;
+            }
+        }
     }
 
 }
