@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <netinet/tcp.h>
+#include <string.h>
 
 #include "evserver.h"
 
