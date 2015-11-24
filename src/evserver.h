@@ -6,10 +6,12 @@
 #include <arpa/inet.h>
 
 #include "util.h"
+#include "platform.h"
 
 #ifndef EVSRV_DEFAULT_BUF_LEN
 #  define EVSRV_DEFAULT_BUF_LEN 4096
 #endif
+
 
 typedef enum {
     EVSRV_IDLE,
@@ -18,21 +20,49 @@ typedef enum {
     EVSRV_STOPPED
 } evsrv_state_t;
 
-typedef struct {
-    int sock;
-
-} evsrv_conn_info;
-
+typedef struct _evserver evserver;
+typedef struct _evserver_info evserver_info;
+typedef struct _evsrv evsrv;
+typedef struct _evsrv_conn_info evsrv_conn_info;
 typedef struct _evsrv_conn evsrv_conn;
 
-typedef void (* c_cb_started_t)(void*);
-typedef evsrv_conn* (* c_cb_conn_create_t)(void*, evsrv_conn_info*);
-typedef void (* c_cb_conn_ready_t)(evsrv_conn*);
-typedef void (* c_cb_conn_close_t)(evsrv_conn*, int err);
-typedef void (* c_cb_read_t)(evsrv_conn*, ssize_t);
 
-typedef struct {
+typedef void        (* c_cb_started_t)(void*);
+typedef evsrv*      (* c_cb_srv_create_t)(evserver*, size_t, evserver_info*);
+typedef void        (* c_cb_srv_destroy_t)(evsrv*);
+
+typedef evsrv_conn* (* c_cb_conn_create_t)(evsrv*, evsrv_conn_info*);
+typedef void        (* c_cb_conn_ready_t)(evsrv_conn*);
+typedef void        (* c_cb_conn_close_t)(evsrv_conn*, int err);
+typedef void        (* c_cb_read_t)(evsrv_conn*, ssize_t);
+
+struct _evserver_info {
+    char* host;
+    char* port;
+
+    c_cb_srv_create_t on_create;
+    c_cb_srv_destroy_t on_destroy;
+};
+
+struct _evserver {
     struct ev_loop* loop;
+    c_cb_started_t on_started;
+
+    evsrv** srvs;
+    size_t srvs_len;
+};
+
+void evserver_init(evserver* self, evserver_info* servers, size_t servers_count);
+void evserver_clean(evserver* self);
+void evserver_listen(evserver* self);
+void evserver_accept(evserver* self);
+void evserver_notify_fork_child(evserver* self);
+void evserver_run(evserver* self);
+
+
+struct _evsrv {
+    struct ev_loop* loop;
+    size_t id;
     evsrv_state_t state;
 
     int sock;
@@ -42,14 +72,15 @@ typedef struct {
     double read_timeout;
     double write_timeout;
 
+    c_cb_srv_destroy_t on_destroy;
     c_cb_started_t on_started;
     c_cb_conn_create_t on_conn_create;
     c_cb_conn_ready_t on_conn_ready;
     c_cb_conn_close_t on_conn_close;
     c_cb_read_t on_read;
 
-    char* host;
-    char* port;
+    const char* host;
+    const char* port;
     struct sockaddr* sock_addr;
     socklen_t sock_addr_len;
 
@@ -58,9 +89,11 @@ typedef struct {
 
     evsrv_conn** connections;
     size_t connections_len;
-} evsrv;
 
-void evsrv_init(evsrv* self);
+    void* data;
+};
+
+void evsrv_init(evsrv* self, size_t id, const char* host, const char* port);
 void evsrv_clean(evsrv* self);
 int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);
@@ -69,6 +102,10 @@ void evsrv_run(evsrv* self);
 
 
 
+struct _evsrv_conn_info {
+    int sock;
+
+};
 
 struct _evsrv_conn {
     evsrv* srv;

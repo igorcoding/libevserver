@@ -1,14 +1,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <stddef.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <sys/uio.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <netinet/tcp.h>
-#include <string.h>
 
 #include "evserver.h"
 
@@ -32,10 +29,75 @@ static void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents);
 static void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents);
 
 
+/*************************** evserver ***************************/
+
+void evserver_init(evserver* self, evserver_info* servers, size_t servers_count) {
+    self->loop = EV_DEFAULT;
+    self->srvs_len = servers_count;
+    self->srvs = (evsrv**) calloc(self->srvs_len, sizeof(evsrv*));
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        self->srvs[i] = servers[i].on_create(self, i, &servers[i]);
+        self->srvs[i]->loop = self->loop;
+        self->srvs[i]->on_destroy = servers[i].on_destroy;
+    }
+    self->on_started = NULL;
+}
+
+void evserver_clean(evserver* self) {
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        self->srvs[i]->on_destroy(self->srvs[i]); // freeing
+        self->srvs[i] = NULL;
+    }
+    free(self->srvs);
+    self->srvs_len = 0;
+}
+
+void evserver_listen(evserver* self) {
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        if (evsrv_listen(self->srvs[i]) == -1) {
+            cerror("Listen of server #%lu failed", self->srvs[i]->id);
+        }
+    }
+}
+
+void evserver_accept(evserver* self) {
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        if (self->srvs[i]->state == EVSRV_LISTENING) {
+            evsrv_accept(self->srvs[i]);
+        }
+    }
+}
+
+void evserver_notify_fork_child(evserver* self) {
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        evsrv* srv = self->srvs[i];
+        evsrv_notify_fork_child(srv);
+    }
+}
+
+
+void evserver_run(evserver* self) {
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        evsrv* srv = self->srvs[i];
+        if (srv->state == EVSRV_ACCEPTING) {
+            if (srv->on_started) {
+                srv->on_started(srv);
+            }
+        }
+    }
+    if (self->on_started) {
+        self->on_started(self);
+    }
+    ev_run(self->loop, 0);
+}
+
 /*************************** evsrv ***************************/
 
-void evsrv_init(evsrv* self) {
+void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
     self->loop = EV_DEFAULT;
+    self->id = id;
+    self->host = host;
+    self->port = port;
     self->state = EVSRV_IDLE;
     self->read_timeout = 0;
     self->write_timeout = 1.0;
@@ -52,6 +114,8 @@ void evsrv_init(evsrv* self) {
     self->connections_len = (size_t) sysconf(_SC_OPEN_MAX);
     self->connections = (evsrv_conn**) calloc(self->connections_len, sizeof(evsrv_conn*));
     memset(self->connections, 0, self->connections_len * sizeof(evsrv_conn*));
+
+    self->data = NULL;
 }
 
 
@@ -61,7 +125,7 @@ void evsrv_clean(evsrv* self) {
     }
 
     if (self->sock > 0) {
-        shutdown(self->sock, SHUT_RDWR);
+        close(self->sock);
         self->sock = -1;
     }
 
@@ -381,7 +445,7 @@ void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
                         break;
                     default:
                         cerror("connection failed while write [now]");
-                        evsrv_conn_shutdown(conn, SHUT_RDWR);
+                        evsrv_conn_shutdown(conn, EVSRV_SHUT_RDWR);
                         evsrv_conn_close(conn, errno);
                         return;
                 }
@@ -421,7 +485,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                 self->on_read(self, nread);
             }
             if (self->ruse != 0 &&  self->ruse == self->rlen) {
-                evsrv_conn_shutdown(self, SHUT_RDWR);
+                evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                 evsrv_conn_close(self, ENOBUFS);
             }
 
@@ -433,7 +497,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     goto again;
                 default:
                     cerror("read error");
-                    evsrv_conn_shutdown(self, SHUT_RDWR);
+                    evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                     evsrv_conn_close(self, errno);
                     return;
             }
@@ -455,7 +519,7 @@ void _evsrv_conn_read_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents)
 
     ev_timer_stop(loop, &self->trw);
     cwarn("read timer triggered");
-    evsrv_conn_shutdown(self, SHUT_RDWR);
+    evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
     evsrv_conn_close(self, errno);
 }
 
@@ -547,7 +611,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     abort();
                 default:
                     cerror("connection failed while write [io]");
-                    evsrv_conn_shutdown(self, SHUT_RDWR);
+                    evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                     evsrv_conn_close(self, errno);
                     return;
             }
@@ -565,7 +629,7 @@ void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents
 
     ev_timer_stop(loop, &self->tww);
     cwarn("write timer triggered");
-    evsrv_conn_shutdown(self, SHUT_RDWR);
+    evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
     evsrv_conn_close(self, errno);
 }
 

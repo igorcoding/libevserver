@@ -6,13 +6,24 @@
 #include <unistd.h>
 
 typedef struct {
+    evsrv srv;
+} my1_srv;
+
+typedef struct {
+    evsrv srv;
+} my2_srv;
+
+typedef struct {
     evsrv_conn conn;
-} my_conn;
+} my1_conn;
+
+
+
 
 static void on_read(evsrv_conn* conn, ssize_t nread);
 
 static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
-    my_conn* c = (my_conn*) malloc(sizeof(my_conn));
+    my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
     c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
@@ -22,7 +33,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
 }
 
 static void on_conn_close(evsrv_conn* conn, int err) {
-    my_conn* c = (my_conn*) conn;
+    my1_conn* c = (my1_conn*) conn;
     evsrv_conn_clean(&c->conn);
     free(c->conn.rbuf);
     c->conn.rbuf = NULL;
@@ -57,44 +68,88 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
     }
 }
 
-void on_started(evsrv* srv) {
-    printf("Started demo server at %s:%s\n", srv->host, srv->port);
+void on_started_my1(evsrv* srv) {
+    printf("Started demo my1 server at %s:%s\n", srv->host, srv->port);
 }
 
+void on_started_my2(evsrv* srv) {
+    printf("Started demo my2 server at %s:%s\n", srv->host, srv->port);
+}
+
+
+
+static evsrv* on_my1_create(evserver* self, size_t id, evserver_info* info) {
+    my1_srv* s = (my1_srv*) malloc(sizeof(my1_srv));
+    evsrv_init(&s->srv, id, info->host, info->port);
+    s->srv.backlog = 500;
+    s->srv.write_timeout = 0.0;
+    s->srv.on_started = (c_cb_started_t) on_started_my1;
+    s->srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;
+    s->srv.on_conn_close = (c_cb_conn_close_t) on_conn_close;
+    return (evsrv*) s;
+}
+
+static void on_my1_destroy(evsrv* self) {
+    my1_srv* s = (my1_srv*) self;
+    evsrv_clean(&s->srv);
+    free(s);
+}
+
+
+static evsrv* on_my2_create(evserver* self, size_t id, evserver_info* info) {
+    my2_srv* s = (my2_srv*) malloc(sizeof(my1_srv));
+    evsrv_init(&s->srv, id, info->host, info->port);
+    s->srv.backlog = 500;
+    s->srv.write_timeout = 0.0;
+    s->srv.on_started = (c_cb_started_t) on_started_my2;
+    s->srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;
+    s->srv.on_conn_close = (c_cb_conn_close_t) on_conn_close;
+    return (evsrv*) s;
+}
+
+static void on_my2_destroy(evsrv* self) {
+    my2_srv* s = (my2_srv*) self;
+    evsrv_clean(&s->srv);
+    free(s);
+}
+
+
+
+
 int main() {
-    evsrv srv;
-    evsrv_init(&srv);
 
-    srv.host = "127.0.0.1";
-    srv.port = "9090";
-    srv.backlog = 500;
-    srv.write_timeout = 0.0;
-    srv.on_started = (c_cb_started_t) on_started;
-    srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;
-    srv.on_conn_close = (c_cb_conn_close_t) on_conn_close;
-    srv.on_read = (c_cb_read_t) on_read;
+    evserver_info hosts[] = {
+            { "127.0.0.1", "9090", on_my1_create, on_my1_destroy },
+            { "127.0.0.1", "7070", on_my2_create, on_my2_destroy },
+    };
+    size_t hosts_len = sizeof(hosts) / sizeof(hosts[0]);
 
-    if (evsrv_listen(&srv) != -1) {
-       evsrv_accept(&srv);
-       evsrv_run(&srv);
-        // int max_childs = 8;
-        // for (int i = 0; i < max_childs; ++i) {
-        //     pid_t pid = fork();
-        //     if (pid > 0) {
-        //         // master
+    evserver server;
+    evserver_init(&server, hosts, hosts_len);
 
-        //     } else if (pid == 0) {
-        //         // child
-        //         evsrv_notify_fork_child(&srv);
-        //         evsrv_accept(&srv);
-        //         evsrv_run(&srv);
-        //         break;
-        //     } else {
-        //         // error
-        //         perror("fork failed");
-        //         break;
-        //     }
-        // }
+
+    evserver_listen(&server);
+//    evserver_accept(&server);
+//    evserver_run(&server);
+
+
+    int max_childs = 8;
+    for (int i = 0; i < max_childs; ++i) {
+        pid_t pid = fork();
+        if (pid > 0) {
+            // master
+
+        } else if (pid == 0) {
+            // child
+            evserver_notify_fork_child(&server);
+            evserver_accept(&server);
+            evserver_run(&server);
+            break;
+        } else {
+            // error
+            perror("fork failed");
+            break;
+        }
     }
 
 }

@@ -18,5 +18,8 @@ add_library(evserver ${SOURCE_FILES})
 target_link_libraries(evserver ev)
 
 
+add_executable(ex_srv ex/ex_srv.c)
+target_link_libraries(ex_srv evserver)
+
 add_executable(ex_server ex/ex_server.c)
 target_link_libraries(ex_server evserver)
