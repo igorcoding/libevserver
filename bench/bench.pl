@@ -12,7 +12,7 @@ my $host = '127.0.0.1';
 my $port = 9090;
 
 my $parallel = 100;
-my $count = 10000;
+my $count = 1000000;
 
 my $msg = "1234567890";
 

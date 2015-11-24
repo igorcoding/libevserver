@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <netinet/tcp.h>
+#include <stddef.h>
 
 #include "evserver.h"
 
@@ -54,8 +55,9 @@ void evserver_clean(evserver* self) {
 
 void evserver_listen(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
-        if (evsrv_listen(self->srvs[i]) == -1) {
-            cerror("Listen of server #%lu failed", self->srvs[i]->id);
+        evsrv* srv = self->srvs[i];
+        if (evsrv_listen(srv) == -1) {
+            cerror("Listen of server [#%lu] %s:%s failed", srv->id, srv->host, srv->port);
         }
     }
 }
@@ -485,7 +487,6 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                 self->on_read(self, nread);
             }
             if (self->ruse != 0 &&  self->ruse == self->rlen) {
-                evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                 evsrv_conn_close(self, ENOBUFS);
             }
 
@@ -497,7 +498,6 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     goto again;
                 default:
                     cerror("read error");
-                    evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                     evsrv_conn_close(self, errno);
                     return;
             }
