@@ -6,7 +6,7 @@ set(CMAKE_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_INCLUDE_PATH}
 
 find_package(LibEV REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
 
 include_directories(src/)
 
