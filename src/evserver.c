@@ -7,6 +7,7 @@
 #include <sys/un.h>
 #include <netinet/tcp.h>
 #include <stddef.h>
+#include <strings.h>
 
 #include "evserver.h"
 
@@ -68,6 +69,9 @@ void evserver_accept(evserver* self) {
             evsrv_accept(self->srvs[i]);
         }
     }
+    if (self->on_started) {
+        self->on_started(self);
+    }
 }
 
 void evserver_notify_fork_child(evserver* self) {
@@ -79,18 +83,14 @@ void evserver_notify_fork_child(evserver* self) {
 
 
 void evserver_run(evserver* self) {
+    ev_run(self->loop, 0);
+}
+
+void evserver_stop(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         evsrv* srv = self->srvs[i];
-        if (srv->state == EVSRV_ACCEPTING) {
-            if (srv->on_started) {
-                srv->on_started(srv);
-            }
-        }
+        evsrv_stop(srv);
     }
-    if (self->on_started) {
-        self->on_started(self);
-    }
-    ev_run(self->loop, 0);
 }
 
 /*************************** evsrv ***************************/
@@ -122,29 +122,14 @@ void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
 
 
 void evsrv_clean(evsrv* self) {
-    if (ev_is_active(&self->accept_rw)) {
-        ev_io_stop(self->loop, &self->accept_rw);
-    }
+    evsrv_stop_io(self->loop, &self->accept_rw);
 
     if (self->sock > 0) {
         close(self->sock);
         self->sock = -1;
     }
 
-    switch(self->sock_addr->sa_family) {
-        case AF_UNIX:
-            free((struct sockaddr_un*) self->sock_addr);
-            break;
-        case AF_INET:
-            free((struct sockaddr_in*) self->sock_addr);
-            break;
-        case AF_INET6:
-            free((struct sockaddr_in6*) self->sock_addr);
-            break;
-        default:
-            free(self->sock_addr);
-            break;
-    }
+    free(self->sock_addr);
 
     for (size_t i = 0; i < self->connections_len; ++i) {
         if (self->connections[i] != NULL) {
@@ -157,7 +142,7 @@ void evsrv_clean(evsrv* self) {
 
 int evsrv_listen(evsrv* self) {
 
-    if (strncasecmp(self->host, "unix:", 5) == 0) { // unix domain socket
+    if (strncasecmp(self->host, "unix", 4) == 0) { // unix domain socket
         size_t path_len = strlen(self->port);
         if (path_len >= 108) {
             cwarn("Too long unix socket path");
@@ -227,6 +212,9 @@ int evsrv_accept(evsrv* self) {
     ev_io_init(&self->accept_rw, _evsrv_accept_cb, self->sock, EV_READ);
     ev_io_start(self->loop, &self->accept_rw);
     self->state = EVSRV_ACCEPTING;
+    if (self->on_started) {
+        self->on_started(self);
+    }
     return 0;
 }
 
@@ -276,21 +264,13 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
         }
 
         if (unlikely(self->connections[conn_info->sock] != NULL)) {
-            evsrv_conn_stop(self->connections[conn_info->sock]);
-            evsrv_conn_clean(self->connections[conn_info->sock]);
+            evsrv_conn_close(self->connections[conn_info->sock], 0);
+//            evsrv_conn_stop(self->connections[conn_info->sock]);
+//            evsrv_conn_clean(self->connections[conn_info->sock]);
         }
         self->connections[conn_info->sock] = conn;
 
-        ev_io_init(&conn->rw, _evsrv_conn_read_cb, conn->info->sock, EV_READ);
-        ev_io_start(loop, &conn->rw);
-
-        ev_timer_init(&conn->trw, _evsrv_conn_read_timeout_cb, self->read_timeout, 0);
-        if (unlikely(self->read_timeout > 0)) {
-            ev_timer_start(loop, &conn->trw);
-        }
-
-        ev_io_init(&conn->ww, _evsrv_conn_write_cb, conn->info->sock, EV_WRITE);
-        ev_timer_init(&conn->tww, _evsrv_conn_write_timeout_cb, self->write_timeout, 0);
+        evsrv_conn_start(conn);
 
         if (self->on_conn_ready) {
             self->on_conn_ready(conn);
@@ -303,12 +283,24 @@ void evsrv_notify_fork_child(evsrv* self) {
 }
 
 void evsrv_run(evsrv* self) {
-    if (self->on_started) {
-        self->on_started(self);
-    }
     ev_run(self->loop, 0);
 }
 
+void evsrv_stop(evsrv* self) {
+    evsrv_stop_io(self->loop, &self->accept_rw);
+
+    if (self->sock > 0) {
+        close(self->sock);
+        self->sock = -1;
+    }
+
+    for (size_t i = 0; i < self->connections_len; ++i) {
+        evsrv_conn* conn = self->connections[i];
+        if (conn != NULL) {
+            evsrv_conn_shutdown(conn, EVSRV_SHUT_RDWR);
+        }
+    }
+}
 
 
 
@@ -322,6 +314,7 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     self->ruse = 0;
     self->rlen = 0;
     self->wnow = 1;
+    self->state = EVSRV_CONN_CREATED;
 
     self->wuse = 0;
     self->wlen = 0;
@@ -334,22 +327,27 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     }
 }
 
+void evsrv_conn_start(evsrv_conn* self) {
+    ev_io_init(&self->rw, _evsrv_conn_read_cb, self->info->sock, EV_READ);
+    ev_io_start(self->srv->loop, &self->rw);
+
+    ev_timer_init(&self->trw, _evsrv_conn_read_timeout_cb, self->srv->read_timeout, 0);
+    if (unlikely(self->srv->read_timeout > 0)) {
+        ev_timer_start(self->srv->loop, &self->trw);
+    }
+
+    ev_io_init(&self->ww, _evsrv_conn_write_cb, self->info->sock, EV_WRITE);
+    ev_timer_init(&self->tww, _evsrv_conn_write_timeout_cb, self->srv->write_timeout, 0);
+    self->state = EVSRV_CONN_ACTIVE;
+}
+
 void evsrv_conn_stop(evsrv_conn* self) {
-    if (ev_is_active(&self->rw)) {
-        ev_io_stop(self->srv->loop, &self->rw);
-    }
+    evsrv_stop_io(self->srv->loop, &self->rw);
+    evsrv_stop_timer(self->srv->loop, &self->trw);
+    evsrv_stop_io(self->srv->loop, &self->ww);
+    evsrv_stop_timer(self->srv->loop, &self->tww);
 
-    if (ev_is_active(&self->trw)) {
-        ev_timer_stop(self->srv->loop, &self->trw);
-    }
-
-    if (ev_is_active(&self->ww)) {
-        ev_io_stop(self->srv->loop, &self->ww);
-    }
-
-    if (ev_is_active(&self->tww)) {
-        ev_timer_stop(self->srv->loop, &self->tww);
-    }
+    self->state = EVSRV_CONN_STOPPED;
 
 }
 
@@ -379,6 +377,7 @@ void evsrv_conn_clean(evsrv_conn* self) {
 
 void evsrv_conn_shutdown(evsrv_conn* self, int how) {
     if (self->info->sock > -1) {
+        self->state = EVSRV_CONN_SHUTDOWN;
         shutdown(self->info->sock, how);
     }
 }
@@ -387,6 +386,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     int sock = self->info->sock;
     evsrv* srv = self->srv;
 
+    self->state = EVSRV_CONN_CLOSING;
     evsrv_conn_stop(self);
     if (self->srv->on_conn_close) {
         self->srv->on_conn_close(self, err);

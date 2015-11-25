@@ -13,13 +13,6 @@
 #endif
 
 
-typedef enum {
-    EVSRV_IDLE,
-    EVSRV_LISTENING,
-    EVSRV_ACCEPTING,
-    EVSRV_STOPPED
-} evsrv_state_t;
-
 typedef struct _evserver evserver;
 typedef struct _evserver_info evserver_info;
 typedef struct _evsrv evsrv;
@@ -58,7 +51,15 @@ void evserver_listen(evserver* self);
 void evserver_accept(evserver* self);
 void evserver_notify_fork_child(evserver* self);
 void evserver_run(evserver* self);
+void evserver_stop(evserver* self);
 
+
+typedef enum {
+    EVSRV_IDLE,
+    EVSRV_LISTENING,
+    EVSRV_ACCEPTING,
+    EVSRV_STOPPED
+} evsrv_state_t;
 
 struct _evsrv {
     struct ev_loop* loop;
@@ -99,6 +100,7 @@ int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);
 void evsrv_notify_fork_child(evsrv* self);
 void evsrv_run(evsrv* self);
+void evsrv_stop(evsrv* self);
 
 
 
@@ -108,6 +110,14 @@ struct _evsrv_conn_info {
 };
 
 struct _evsrv_conn {
+    enum {
+        EVSRV_CONN_CREATED,
+        EVSRV_CONN_ACTIVE,
+        EVSRV_CONN_SHUTDOWN,
+        EVSRV_CONN_CLOSING,
+        EVSRV_CONN_CLOSING_FORCE,
+        EVSRV_CONN_STOPPED,
+    } state;
     evsrv* srv;
     evsrv_conn_info* info;
 
@@ -132,6 +142,7 @@ struct _evsrv_conn {
 
 
 void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info);
+void evsrv_conn_start(evsrv_conn* self);
 void evsrv_conn_stop(evsrv_conn* self);
 void evsrv_conn_clean(evsrv_conn* self);
 void evsrv_conn_shutdown(evsrv_conn* self, int how);
@@ -143,6 +154,12 @@ void evsrv_write(evsrv_conn* conn, const char* buf, size_t len);
 #define evsrv_stop_timer(loop, ev) do { \
     if (ev_is_active(ev)) { \
         ev_timer_stop(loop, ev); \
+    } \
+} while (0)
+
+#define evsrv_stop_io(loop, ev) do { \
+    if (ev_is_active(ev)) { \
+        ev_io_stop(loop, ev); \
     } \
 } while (0)
 
