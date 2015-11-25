@@ -388,6 +388,7 @@ void evsrv_conn_shutdown(evsrv_conn* self, int how) {
 }
 
 void evsrv_conn_close(evsrv_conn* self, int err) {
+    cwarn("[%d] conn_close", self->info->sock);
     int sock = self->info->sock;
     evsrv* srv = self->srv;
 
