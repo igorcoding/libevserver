@@ -7,6 +7,7 @@
 #include <sys/un.h>
 #include <netinet/tcp.h>
 #include <stddef.h>
+#include <strings.h>
 
 #include "evserver.h"
 
