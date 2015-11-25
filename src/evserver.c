@@ -1,11 +1,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
-#include <netinet/tcp.h>
 #include <stddef.h>
 #include <strings.h>
 
