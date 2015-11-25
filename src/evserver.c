@@ -133,11 +133,14 @@ void evsrv_clean(evsrv* self) {
 
     for (size_t i = 0; i < self->connections_len; ++i) {
         if (self->connections[i] != NULL) {
-            evsrv_conn_clean(self->connections[i]);
-            free(self->connections[i]);
+            evsrv_conn* conn = self->connections[i];
+            evsrv_conn_stop(conn);
+            evsrv_conn_clean(conn);
+            free(conn);
             self->connections[i] = NULL;
         }
     }
+    free(self->connections);
 }
 
 int evsrv_listen(evsrv* self) {
@@ -179,19 +182,16 @@ int evsrv_listen(evsrv* self) {
 
     int one = 1;
     if (setsockopt(self->sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
-        cerror("Error setting socket options");
-        return -1;
+        cerror("Error setting socket options: SO_REUSEADDR");
     }
 
    if (setsockopt(self->sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0) {
-       cerror("Error setting socket options");
-       return -1;
+       cerror("Error setting socket options: TCP_NODELAY");
    }
 
     struct linger linger = { 0, 0 };
     if (setsockopt(self->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
-        cerror("Error setting socket options");
-        return -1;
+        cerror("Error setting socket options: SO_LINGER");
     }
 
     if (bind(self->sock, self->sock_addr, self->sock_addr_len) < 0) {

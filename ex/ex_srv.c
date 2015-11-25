@@ -61,9 +61,25 @@ void on_started(evsrv* srv) {
     printf("Started demo server at %s:%s\n", srv->host, srv->port);
 }
 
+
+static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
+    evsrv* srv = (evsrv*) w->data;
+    evsrv_stop(srv);
+    evsrv_clean(srv);
+    ev_signal_stop(loop, w);
+    ev_loop_destroy(srv->loop);
+}
+
 int main() {
     evsrv srv;
-    evsrv_init(&srv, 1, "127.0.0.1", "9090");
+//    evsrv_init(&srv, 1, "127.0.0.1", "9090");
+    evsrv_init(&srv, 1, "unix", "/var/tmp/ev_srv.sock");
+
+    ev_signal sig;
+    ev_signal_init(&sig, signal_cb, SIGINT);
+//    ev_signal_set(&sig, SIGTERM);
+//    ev_signal_set(&sig, SIGABRT);
+    sig.data = (void*) &srv;
 
     srv.backlog = 500;
     srv.write_timeout = 0.0;
@@ -73,6 +89,7 @@ int main() {
     srv.on_read = (c_cb_read_t) on_read;
 
     if (evsrv_listen(&srv) != -1) {
+        ev_signal_start(srv.loop, &sig);
         evsrv_accept(&srv);
         evsrv_run(&srv);
 //        int max_childs = 4;
