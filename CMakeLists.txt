@@ -13,6 +13,7 @@ include_directories(src/)
 set(SOURCE_FILES src/evserver.c
                  src/evserver.h
                  src/util.h
+                 src/platform.h
 )
 add_library(evserver ${SOURCE_FILES})
 target_link_libraries(evserver ev)

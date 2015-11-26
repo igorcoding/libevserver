@@ -21,6 +21,7 @@ typedef struct {
 
 
 static void on_read(evsrv_conn* conn, ssize_t nread);
+static void on_graceful_conn_close(evsrv_conn* conn);
 
 static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
@@ -29,6 +30,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
     c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
     c->conn.on_read = (c_cb_read_t) on_read;
+    c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
     return (evsrv_conn*) c;
 }
 
@@ -66,6 +68,13 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
     if (conn->ruse > 0) {
         memmove(conn->rbuf, rbuf, conn->ruse);
     }
+}
+
+static void on_graceful_conn_close(evsrv_conn* conn) {
+    int sock = conn->info->sock;
+    cwarn("[%d] user: on_graceful_conn_close", sock);
+    evsrv_conn_close(conn, 0);
+    cwarn("[%d] user: done on_graceful_conn_close", sock);
 }
 
 void on_started_my1(evsrv* srv) {
@@ -113,6 +122,18 @@ static void on_my2_destroy(evsrv* self) {
     free(s);
 }
 
+static void on_gracefully_stopped(evserver* server) {
+    cwarn("Gracefully stopped evserver");
+    evserver_clean(server);
+    ev_loop_destroy(server->loop);
+}
+
+
+static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
+    ev_signal_stop(loop, w);
+    evserver* server = (evserver*) w->data;
+    evserver_graceful_stop(server, on_gracefully_stopped);
+}
 
 
 
@@ -127,29 +148,34 @@ int main() {
     evserver server;
     evserver_init(&server, hosts, hosts_len);
 
+    ev_signal sig;
+    ev_signal_init(&sig, signal_cb, SIGINT);
+    sig.data = (void*) &server;
+
 
     evserver_listen(&server);
-//    evserver_accept(&server);
-//    evserver_run(&server);
+    ev_signal_start(server.loop, &sig);
+    evserver_accept(&server);
+    evserver_run(&server);
 
 
-    int max_childs = 8;
-    for (int i = 0; i < max_childs; ++i) {
-        pid_t pid = fork();
-        if (pid > 0) {
-            // master
-
-        } else if (pid == 0) {
-            // child
-            evserver_notify_fork_child(&server);
-            evserver_accept(&server);
-            evserver_run(&server);
-            break;
-        } else {
-            // error
-            perror("fork failed");
-            break;
-        }
-    }
+//    int max_childs = 8;
+//    for (int i = 0; i < max_childs; ++i) {
+//        pid_t pid = fork();
+//        if (pid > 0) {
+//            // master
+//
+//        } else if (pid == 0) {
+//            // child
+//            evserver_notify_fork_child(&server);
+//            evserver_accept(&server);
+//            evserver_run(&server);
+//            break;
+//        } else {
+//            // error
+//            perror("fork failed");
+//            break;
+//        }
+//    }
 
 }

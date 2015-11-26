@@ -8,6 +8,10 @@
 #include "util.h"
 #include "platform.h"
 
+#ifndef EVSRV_USE_TCP_NO_DELAY
+#  define EVSRV_USE_TCP_NO_DELAY 0
+#endif
+
 #ifndef EVSRV_DEFAULT_BUF_LEN
 #  define EVSRV_DEFAULT_BUF_LEN 4096
 #endif
@@ -29,6 +33,10 @@ typedef void        (* c_cb_conn_ready_t)(evsrv_conn*);
 typedef void        (* c_cb_conn_close_t)(evsrv_conn*, int err);
 typedef void        (* c_cb_read_t)(evsrv_conn*, ssize_t);
 
+typedef void        (* c_cb_evserver_graceful_stop_t)(evserver*);
+typedef void        (* c_cb_evsrv_graceful_stop_t)(evsrv*);
+typedef void        (* c_cb_graceful_close_t)(evsrv_conn*);
+
 struct _evserver_info {
     char* host;
     char* port;
@@ -40,9 +48,12 @@ struct _evserver_info {
 struct _evserver {
     struct ev_loop* loop;
     c_cb_started_t on_started;
+    c_cb_evserver_graceful_stop_t on_graceful_stop;
 
     evsrv** srvs;
     size_t srvs_len;
+
+    int active_srvs;
 };
 
 void evserver_init(evserver* self, evserver_info* servers, size_t servers_count);
@@ -52,16 +63,19 @@ void evserver_accept(evserver* self);
 void evserver_notify_fork_child(evserver* self);
 void evserver_run(evserver* self);
 void evserver_stop(evserver* self);
+void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb);
 
 
 typedef enum {
     EVSRV_IDLE,
     EVSRV_LISTENING,
     EVSRV_ACCEPTING,
+    EVSRV_STOPPING,
     EVSRV_STOPPED
 } evsrv_state_t;
 
 struct _evsrv {
+    evserver* server;
     struct ev_loop* loop;
     size_t id;
     evsrv_state_t state;
@@ -79,6 +93,7 @@ struct _evsrv {
     c_cb_conn_ready_t on_conn_ready;
     c_cb_conn_close_t on_conn_close;
     c_cb_read_t on_read;
+    c_cb_evsrv_graceful_stop_t on_graceful_stop;
 
     const char* host;
     const char* port;
@@ -101,6 +116,7 @@ int evsrv_accept(evsrv* self);
 void evsrv_notify_fork_child(evsrv* self);
 void evsrv_run(evsrv* self);
 void evsrv_stop(evsrv* self);
+void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb);
 
 
 
@@ -137,6 +153,7 @@ struct _evsrv_conn {
     uint32_t rlen;
 
     c_cb_read_t on_read;
+    c_cb_graceful_close_t on_graceful_close;
 };
 
 

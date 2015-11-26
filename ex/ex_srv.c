@@ -10,6 +10,7 @@ typedef struct {
 } my1_conn;
 
 static void on_read(evsrv_conn* conn, ssize_t nread);
+static void on_graceful_conn_close(evsrv_conn* conn);
 
 static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
@@ -18,11 +19,13 @@ static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
     c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
     c->conn.on_read = (c_cb_read_t) on_read;
+    c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
     return (evsrv_conn*) c;
 }
 
 static void on_conn_close(evsrv_conn* conn, int err) {
     my1_conn* c = (my1_conn*) conn;
+    cwarn("[%d] user: on_conn_close", c->conn.info->sock);
     evsrv_conn_clean(&c->conn);
     free(c->conn.rbuf);
     c->conn.rbuf = NULL;
@@ -57,28 +60,40 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
     }
 }
 
+static void on_graceful_conn_close(evsrv_conn* conn) {
+    int sock = conn->info->sock;
+    cwarn("[%d] user: on_graceful_conn_close", sock);
+    evsrv_conn_close(conn, 0);
+    cwarn("[%d] user: done on_graceful_conn_close", sock);
+}
+
 void on_started(evsrv* srv) {
     printf("Started demo server at %s:%s\n", srv->host, srv->port);
 }
 
 
-static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
-    evsrv* srv = (evsrv*) w->data;
-    evsrv_stop(srv);
+static void on_gracefully_stopped(evsrv* srv) {
+    cwarn("Gracefully stopped %s:%s", srv->host, srv->port);
     evsrv_clean(srv);
-    ev_signal_stop(loop, w);
     ev_loop_destroy(srv->loop);
+}
+
+static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
+    ev_signal_stop(loop, w);
+    evsrv* srv = (evsrv*) w->data;
+//    evsrv_stop(srv);
+//    evsrv_clean(srv);
+    evsrv_graceful_stop(srv, on_gracefully_stopped);
+//    ev_loop_destroy(srv->loop);
 }
 
 int main() {
     evsrv srv;
 //    evsrv_init(&srv, 1, "127.0.0.1", "9090");
-    evsrv_init(&srv, 1, "unix", "/var/tmp/ev_srv.sock");
+    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
 
     ev_signal sig;
     ev_signal_init(&sig, signal_cb, SIGINT);
-//    ev_signal_set(&sig, SIGTERM);
-//    ev_signal_set(&sig, SIGABRT);
     sig.data = (void*) &srv;
 
     srv.backlog = 500;

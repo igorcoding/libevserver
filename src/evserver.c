@@ -8,6 +8,7 @@
 #include <netinet/tcp.h>
 #include <stddef.h>
 #include <strings.h>
+#include <assert.h>
 
 #include "evserver.h"
 
@@ -30,6 +31,8 @@ static void _evsrv_conn_read_timeout_cb(struct ev_loop* loop, ev_timer* w, int r
 static void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents);
 static void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents);
 
+static void _evserver_graceful_stop_cb(evsrv* stopped_srv);
+
 
 /*************************** evserver ***************************/
 
@@ -40,9 +43,12 @@ void evserver_init(evserver* self, evserver_info* servers, size_t servers_count)
     for (size_t i = 0; i < self->srvs_len; ++i) {
         self->srvs[i] = servers[i].on_create(self, i, &servers[i]);
         self->srvs[i]->loop = self->loop;
+        self->srvs[i]->server = self;
         self->srvs[i]->on_destroy = servers[i].on_destroy;
     }
+    self->active_srvs = 0;
     self->on_started = NULL;
+    self->on_graceful_stop = NULL;
 }
 
 void evserver_clean(evserver* self) {
@@ -67,6 +73,7 @@ void evserver_accept(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         if (self->srvs[i]->state == EVSRV_LISTENING) {
             evsrv_accept(self->srvs[i]);
+            ++self->active_srvs;
         }
     }
     if (self->on_started) {
@@ -90,6 +97,33 @@ void evserver_stop(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         evsrv* srv = self->srvs[i];
         evsrv_stop(srv);
+        --self->active_srvs;
+    }
+}
+
+void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb) {
+    cwarn("evserver graceful stop started");
+    self->on_graceful_stop = cb;
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        evsrv* srv = self->srvs[i];
+        if (srv->state == EVSRV_ACCEPTING) {
+            evsrv_graceful_stop(srv, _evserver_graceful_stop_cb);
+        } else {
+            evsrv_stop(srv);
+            --self->active_srvs;
+            if (self->active_srvs == 0) {
+                self->on_graceful_stop(self);
+            }
+        }
+    }
+}
+
+void _evserver_graceful_stop_cb(evsrv* stopped_srv) {
+    evserver* server = stopped_srv->server;
+    assert(server != NULL);
+    --server->active_srvs;
+    if (server->active_srvs == 0) {
+        server->on_graceful_stop(server);
     }
 }
 
@@ -97,6 +131,7 @@ void evserver_stop(evserver* self) {
 
 void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
     self->loop = EV_DEFAULT;
+    self->server = NULL;
     self->id = id;
     self->host = host;
     self->port = port;
@@ -112,6 +147,7 @@ void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
     self->on_conn_ready = NULL;
     self->on_conn_close = NULL;
     self->on_read = NULL;
+    self->on_graceful_stop = NULL;
 
     self->connections_len = (size_t) sysconf(_SC_OPEN_MAX);
     self->connections = (evsrv_conn**) calloc(self->connections_len, sizeof(evsrv_conn*));
@@ -123,6 +159,7 @@ void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
 
 void evsrv_clean(evsrv* self) {
     evsrv_stop_io(self->loop, &self->accept_rw);
+
 
     if (self->sock > 0) {
         close(self->sock);
@@ -141,11 +178,12 @@ void evsrv_clean(evsrv* self) {
         }
     }
     free(self->connections);
+    self->server = NULL;
 }
 
 int evsrv_listen(evsrv* self) {
 
-    if (strncasecmp(self->host, "unix", 4) == 0) { // unix domain socket
+    if (strncasecmp(self->host, "unix/", 5) == 0) { // unix domain socket
         size_t path_len = strlen(self->port);
         if (path_len >= 108) {
             cwarn("Too long unix socket path");
@@ -172,6 +210,7 @@ int evsrv_listen(evsrv* self) {
         self->sock_addr = (struct sockaddr*) serv_addr;
         self->sock_addr_len = sizeof(*serv_addr);
     }
+    sa_family_t family = self->sock_addr->sa_family;
 
     self->sock = socket(self->sock_addr->sa_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
@@ -185,9 +224,19 @@ int evsrv_listen(evsrv* self) {
         cerror("Error setting socket options: SO_REUSEADDR");
     }
 
-   if (setsockopt(self->sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0) {
-       cerror("Error setting socket options: TCP_NODELAY");
-   }
+#if EVSRV_USE_TCP_NO_DELAY != 0
+    if (family == AF_INET || family == AF_INET6) {
+        if (setsockopt(self->sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0) {
+            cerror("Error setting socket options: TCP_NODELAY");
+        }
+    }
+#endif
+
+    if (family == AF_INET || family == AF_INET6) {
+        if (setsockopt(self->sock, SOL_TCP, TCP_DEFER_ACCEPT, &one, sizeof(one)) < 0) {
+            cerror("Error setting socket options: TCP_DEFER_ACCEPT");
+        }
+    }
 
     struct linger linger = { 0, 0 };
     if (setsockopt(self->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
@@ -297,7 +346,41 @@ void evsrv_stop(evsrv* self) {
     for (size_t i = 0; i < self->connections_len; ++i) {
         evsrv_conn* conn = self->connections[i];
         if (conn != NULL) {
-            evsrv_conn_shutdown(conn, EVSRV_SHUT_RDWR);
+            evsrv_conn_close(conn, 0);
+        }
+    }
+}
+
+void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
+    cwarn("graceful stop started");
+    evsrv_stop_io(self->loop, &self->accept_rw);
+
+    if (self->sock > 0) {
+        close(self->sock);
+        self->sock = -1;
+    }
+
+
+    self->state = EVSRV_STOPPING;
+    if (self->active_connections == 0) {
+        cb(self);
+    } else {
+        self->on_graceful_stop = cb;
+        for (size_t i = 0; i < self->connections_len; ++i) {
+            evsrv_conn* conn = self->connections[i];
+            if (conn != NULL) {
+                int sock = conn->info->sock;
+                cwarn("[%d] <on_graceful_stop>", sock);
+                conn->on_graceful_close(conn);
+                cwarn("[%d] </on_graceful_stop>", sock);
+            }
+
+            if (self->active_connections == 0 && self->state == EVSRV_STOPPING) {
+                cwarn("after graceful shutdown");
+                self->state = EVSRV_STOPPED;
+                self->on_graceful_stop(self);
+                break;
+            }
         }
     }
 }
@@ -319,6 +402,9 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     self->wuse = 0;
     self->wlen = 0;
     self->wbuf = NULL;
+
+    self->on_read = NULL;
+    self->on_graceful_close = NULL;
 
     fcntl(self->info->sock, F_SETFL, fcntl(self->info->sock, F_GETFL, 0) | O_NONBLOCK);
     struct linger linger = { 0, 0 };
@@ -352,6 +438,7 @@ void evsrv_conn_stop(evsrv_conn* self) {
 }
 
 void evsrv_conn_clean(evsrv_conn* self) {
+    cwarn("[%d] evsrv_conn_clean", self->info->sock);
     if (self->info->sock > -1) {
         close(self->info->sock);
         self->info->sock = -1;
@@ -386,6 +473,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     int sock = self->info->sock;
     evsrv* srv = self->srv;
 
+    cwarn("[%d] <evsrv_conn_close>", sock);
     self->state = EVSRV_CONN_CLOSING;
     evsrv_conn_stop(self);
     if (self->srv->on_conn_close) {
@@ -403,6 +491,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
         srv->connections[sock] = NULL;
     }
     --srv->active_connections;
+    cwarn("[%d] </evsrv_conn_close>", sock);
 }
 
 void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {

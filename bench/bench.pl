@@ -8,13 +8,13 @@ use Scalar::Util qw(weaken);
 use Time::HiRes 'sleep','time';
 use EV;
 
-#my $host = 'igorcoding.ddns.net';
-#my $port = 9090;
-my $host = 'unix/:';
-my $port = '/var/tmp/ev_srv.sock';
+my $host = '127.0.0.1';
+my $port = 9090;
+#my $host = 'unix/';
+#my $port = '/var/tmp/ev_srv.sock';
 
-my $parallel = 100;
-my $count = 1000000;
+my $parallel = 5;
+my $count = 100000;
 
 my $msg = "1234567890";
 
@@ -56,7 +56,7 @@ sub main {
 		);
 	};
 
-	my ($hostname, $service) = parse_hostport $host . $port;
+	my ($hostname, $service) = parse_hostport $host . ':' . $port;
 	for my $p (0..$parallel-1) {
 
 		tcp_connect $hostname, $service, sub {
