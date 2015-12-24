@@ -89,8 +89,8 @@ static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 
 int main() {
     evsrv srv;
-//    evsrv_init(&srv, 1, "127.0.0.1", "9090");
-    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
+    evsrv_init(&srv, 1, "127.0.0.1", "9090");
+//    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
 
     ev_signal sig;
     ev_signal_init(&sig, signal_cb, SIGINT);

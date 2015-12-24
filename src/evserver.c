@@ -218,6 +218,9 @@ int evsrv_listen(evsrv* self) {
         cerror("Error creating socket");
         return -1;
     }
+    if (!evsrv_socket_set_nonblock(self->sock, true)) {
+        cerror("Error setting O_NONBLOCK");
+    }
 
     int one = 1;
     if (setsockopt(self->sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
@@ -238,7 +241,7 @@ int evsrv_listen(evsrv* self) {
         }
     }
 
-    struct linger linger = { 0, 0 };
+    struct linger linger = { 1, 0 };
     if (setsockopt(self->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
         cerror("Error setting socket options: SO_LINGER");
     }
@@ -385,6 +388,13 @@ void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
     }
 }
 
+bool evsrv_socket_set_nonblock(int fd, bool nonblocking) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) return false;
+    flags = nonblocking ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
+    return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
+}
+
 
 
 
@@ -406,8 +416,10 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     self->on_read = NULL;
     self->on_graceful_close = NULL;
 
-    fcntl(self->info->sock, F_SETFL, fcntl(self->info->sock, F_GETFL, 0) | O_NONBLOCK);
-    struct linger linger = { 0, 0 };
+    if (!evsrv_socket_set_nonblock(self->info->sock, true)) {
+        cerror("Error setting O_NONBLOCK");
+    }
+    struct linger linger = { 1, 0 };
     if (setsockopt(self->info->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
         cerror("Error setting socket options");
     }

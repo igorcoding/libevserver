@@ -4,12 +4,13 @@
 #include <ev.h>
 #include <stdint.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 #include "util.h"
 #include "platform.h"
 
 #ifndef EVSRV_USE_TCP_NO_DELAY
-#  define EVSRV_USE_TCP_NO_DELAY 0
+#  define EVSRV_USE_TCP_NO_DELAY 1
 #endif
 
 #ifndef EVSRV_DEFAULT_BUF_LEN
@@ -117,7 +118,7 @@ void evsrv_notify_fork_child(evsrv* self);
 void evsrv_run(evsrv* self);
 void evsrv_stop(evsrv* self);
 void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb);
-
+bool evsrv_socket_set_nonblock(int fd, bool nonblocking);
 
 
 struct _evsrv_conn_info {
