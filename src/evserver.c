@@ -81,8 +81,7 @@ void evserver_accept(evserver* self) {
 
 void evserver_notify_fork_child(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
-        evsrv* srv = self->srvs[i];
-        evsrv_notify_fork_child(srv);
+        evsrv_notify_fork_child(self->srvs[i]);
     }
 }
 
@@ -118,7 +117,7 @@ void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb) {
 
 void _evserver_graceful_stop_cb(evsrv* stopped_srv) {
     evserver* server = stopped_srv->server;
-    assert(server != NULL);
+    assert("server instance should not be NULL" && server != NULL);
     --server->active_srvs;
     if (server->active_srvs == 0) {
         server->on_graceful_stop(server);
@@ -394,8 +393,10 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     self->on_read = NULL;
     self->on_graceful_close = NULL;
 
+    self->data = NULL;
+
     if (evsrv_socket_set_nonblock(self->info->sock) < 0) {
-        cerror("Error setting O_NONBLOCK");
+        cerror("Error setting socket %d to nonblock", self->info->sock);
     }
     struct linger linger = { 1, 0 };
     if (setsockopt(self->info->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {

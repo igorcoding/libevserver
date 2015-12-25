@@ -48,12 +48,12 @@ struct _evserver_info {
 
 struct _evserver {
     struct ev_loop* loop;
+
     c_cb_started_t on_started;
     c_cb_evserver_graceful_stop_t on_graceful_stop;
 
     evsrv** srvs;
     size_t srvs_len;
-
     int active_srvs;
 };
 
@@ -76,17 +76,22 @@ typedef enum {
 } evsrv_state_t;
 
 struct _evsrv {
-    evserver* server;
     struct ev_loop* loop;
+    evserver* server;
     size_t id;
     evsrv_state_t state;
+    time_t now;
+
+    const char* host;
+    const char* port;
+    struct evsrv_sockaddr sockaddr;
 
     int sock;
     int backlog;
-
-    ev_io accept_rw;
     double read_timeout;
+
     double write_timeout;
+    ev_io accept_rw;
 
     c_cb_srv_destroy_t on_destroy;
     c_cb_started_t on_started;
@@ -94,15 +99,10 @@ struct _evsrv {
     c_cb_conn_ready_t on_conn_ready;
     c_cb_conn_close_t on_conn_close;
     c_cb_read_t on_read;
+
     c_cb_evsrv_graceful_stop_t on_graceful_stop;
 
-    const char* host;
-    const char* port;
-    struct evsrv_sockaddr sockaddr;
-
-    time_t now;
     int active_connections;
-
     evsrv_conn** connections;
     size_t connections_len;
 
@@ -125,6 +125,8 @@ struct _evsrv_conn_info {
 };
 
 struct _evsrv_conn {
+    evsrv* srv;
+    evsrv_conn_info* info;
     enum {
         EVSRV_CONN_CREATED,
         EVSRV_CONN_ACTIVE,
@@ -133,8 +135,6 @@ struct _evsrv_conn {
         EVSRV_CONN_CLOSING_FORCE,
         EVSRV_CONN_STOPPED,
     } state;
-    evsrv* srv;
-    evsrv_conn_info* info;
 
     ev_io rw;
     ev_timer trw;
@@ -142,20 +142,20 @@ struct _evsrv_conn {
     ev_io ww;
     ev_timer tww;
 
+    char* rbuf;
+    uint32_t ruse;
+    uint32_t rlen;
+
     struct iovec* wbuf;
     uint32_t wuse;
     uint32_t wlen;
     int wnow;
 
-    char* rbuf;
-    uint32_t ruse;
-    uint32_t rlen;
-
     c_cb_read_t on_read;
     c_cb_graceful_close_t on_graceful_close;
+
+    void* data;
 };
-
-
 
 void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info);
 void evsrv_conn_start(evsrv_conn* self);

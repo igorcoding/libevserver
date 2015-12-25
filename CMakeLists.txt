@@ -31,3 +31,6 @@ target_link_libraries(ex_srv evserver)
 
 add_executable(ex_server ex/ex_server.c)
 target_link_libraries(ex_server evserver)
+
+add_executable(ex_simple_echo_server ex/ex_simple_echo_server.c)
+target_link_libraries(ex_simple_echo_server evserver)

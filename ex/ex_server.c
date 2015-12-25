@@ -141,7 +141,7 @@ int main() {
 
     evserver_info hosts[] = {
             { "127.0.0.1", "9090", on_my1_create, on_my1_destroy },
-//            { "127.0.0.1", "7070", on_my2_create, on_my2_destroy },
+            { "127.0.0.1", "7070", on_my2_create, on_my2_destroy },
     };
     size_t hosts_len = sizeof(hosts) / sizeof(hosts[0]);
 
