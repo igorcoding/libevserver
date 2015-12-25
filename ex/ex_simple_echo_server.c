@@ -35,6 +35,6 @@ int main() {
     if (evsrv_listen(&srv) != -1) {
         ev_signal_start(srv.loop, &sig);
         evsrv_accept(&srv);
-        evsrv_run(&srv);
+        ev_run(srv.loop, 0);
     }
 }
