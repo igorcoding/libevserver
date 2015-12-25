@@ -7,10 +7,18 @@
 
 typedef struct {
     evsrv_conn conn;
+    ev_timer tw;
 } my1_conn;
 
 static void on_read(evsrv_conn* conn, ssize_t nread);
 static void on_graceful_conn_close(evsrv_conn* conn);
+static void on_graceful_conn_timeout(struct ev_loop* loop, ev_timer* timer, int revents) {
+    ev_timer_stop(loop, timer);
+
+    my1_conn* c = (my1_conn*) timer->data;
+    cwarn("timered. closing %d", c->conn.info->sock);
+    evsrv_conn_close(&c->conn, 0);
+}
 
 static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
@@ -20,6 +28,10 @@ static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
     c->conn.on_read = (c_cb_read_t) on_read;
     c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
+
+    c->tw.data = (void*) c;
+    ev_timer_init(&c->tw, on_graceful_conn_timeout, 1, 0);
+
     return (evsrv_conn*) c;
 }
 
@@ -61,9 +73,11 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
 }
 
 static void on_graceful_conn_close(evsrv_conn* conn) {
+    my1_conn* c = (my1_conn*) conn;
     int sock = conn->info->sock;
     cwarn("[%d] user: on_graceful_conn_close", sock);
-    evsrv_conn_close(conn, 0);
+//    evsrv_conn_close(conn, 0);
+    ev_timer_start(conn->srv->loop, &c->tw);
     cwarn("[%d] user: done on_graceful_conn_close", sock);
 }
 

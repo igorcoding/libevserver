@@ -369,13 +369,6 @@ void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
                 conn->on_graceful_close(conn);
                 cwarn("[%d] </on_graceful_stop>", sock);
             }
-
-            if (self->active_connections == 0 && self->state == EVSRV_STOPPING) {
-                cwarn("after graceful shutdown");
-                self->state = EVSRV_STOPPED;
-                self->on_graceful_stop(self);
-                break;
-            }
         }
     }
 }
@@ -489,6 +482,12 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     }
     --srv->active_connections;
     cwarn("[%d] </evsrv_conn_close>", sock);
+
+    if (srv->active_connections == 0 && srv->state == EVSRV_STOPPING) {
+        cwarn("after graceful shutdown");
+        srv->state = EVSRV_STOPPED;
+        srv->on_graceful_stop(srv);
+    }
 }
 
 void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
@@ -572,6 +571,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
                 self->on_read(self, nread);
             }
             if (self->ruse != 0 &&  self->ruse == self->rlen) {
+                evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                 evsrv_conn_close(self, ENOBUFS);
             }
 
@@ -591,6 +591,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
             if (self->on_read) {
                 self->on_read(self, 0);
             }
+            evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
             evsrv_conn_close(self, errno);
         }
 }
