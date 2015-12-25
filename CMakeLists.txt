@@ -8,14 +8,21 @@ find_package(LibEV REQUIRED)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
-include_directories(src/)
+include_directories(include/)
 
-set(SOURCE_FILES src/evserver.c
-                 src/evserver.h
-                 src/util.h
-                 src/platform.h
+set(HEADER_FILES
+        include/evserver.h
+        include/evsrv_sockaddr.h
+        include/util.h
+        include/platform.h
 )
-add_library(evserver ${SOURCE_FILES})
+
+set(SOURCE_FILES
+        src/evserver.c
+        src/util.c
+)
+
+add_library(evserver ${SOURCE_FILES} ${HEADER_FILES})
 target_link_libraries(evserver ev)
 
 

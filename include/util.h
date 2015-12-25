@@ -34,4 +34,10 @@
 
 #define memdup(a,b) memcpy(malloc(b),a,b)
 
+//#define SELFby(ptr,type,xx) (type*) ( (char*) ptr - (ptrdiff_t) &((type*) 0)-> xx );
+#define SELFby(ptr, type, xx) (type*) ( (char *) (ptr) - offsetof(type, xx))
+
+
+int evsrv_socket_set_nonblock(int fd);
+
 #endif //LIBEVSERVER_UTIL_H

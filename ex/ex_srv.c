@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <evserver.h>
+#include "../include/evserver.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -96,7 +96,6 @@ int main() {
     ev_signal_init(&sig, signal_cb, SIGINT);
     sig.data = (void*) &srv;
 
-    srv.backlog = 500;
     srv.write_timeout = 0.0;
     srv.on_started = (c_cb_started_t) on_started;
     srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;

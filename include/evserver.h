@@ -4,10 +4,10 @@
 #include <ev.h>
 #include <stdint.h>
 #include <arpa/inet.h>
-#include <stdbool.h>
 
-#include "util.h"
 #include "platform.h"
+#include "util.h"
+#include "evsrv_sockaddr.h"
 
 #ifndef EVSRV_USE_TCP_NO_DELAY
 #  define EVSRV_USE_TCP_NO_DELAY 1
@@ -98,8 +98,7 @@ struct _evsrv {
 
     const char* host;
     const char* port;
-    struct sockaddr* sock_addr;
-    socklen_t sock_addr_len;
+    struct evsrv_sockaddr sockaddr;
 
     time_t now;
     int active_connections;
@@ -118,12 +117,11 @@ void evsrv_notify_fork_child(evsrv* self);
 void evsrv_run(evsrv* self);
 void evsrv_stop(evsrv* self);
 void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb);
-bool evsrv_socket_set_nonblock(int fd, bool nonblocking);
 
 
 struct _evsrv_conn_info {
     int sock;
-
+    struct evsrv_sockaddr addr;
 };
 
 struct _evsrv_conn {

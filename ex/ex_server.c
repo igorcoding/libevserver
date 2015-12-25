@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <evserver.h>
+#include "../include/evserver.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>

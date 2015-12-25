@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include "evserver.h"
+#include "evsrv_sockaddr.h"
 
 #ifndef IOV_MAX
 #  ifdef UIO_MAXIOV
@@ -19,9 +20,6 @@
 #    define IOV_MAX 1024
 #  endif
 #endif
-
-//#define dSELFby(ptr,type,xx) (type*) ( (char*) ptr - (ptrdiff_t) &((type*) 0)-> xx );
-#define dSELFby(ptr, type, xx) (type*) ( (char *) (ptr) - offsetof(type, xx))
 
 static void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents);
 
@@ -138,7 +136,7 @@ void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
     self->state = EVSRV_IDLE;
     self->read_timeout = 0;
     self->write_timeout = 1.0;
-    self->backlog = 10;
+    self->backlog = SOMAXCONN;
     self->sock = -1;
     self->active_connections = 0;
 
@@ -166,8 +164,6 @@ void evsrv_clean(evsrv* self) {
         self->sock = -1;
     }
 
-    free(self->sock_addr);
-
     for (size_t i = 0; i < self->connections_len; ++i) {
         if (self->connections[i] != NULL) {
             evsrv_conn* conn = self->connections[i];
@@ -186,40 +182,39 @@ int evsrv_listen(evsrv* self) {
     if (strncasecmp(self->host, "unix/", 5) == 0) { // unix domain socket
         size_t path_len = strlen(self->port);
         if (path_len >= 108) {
-            cwarn("Too long unix socket path");
+            cwarn("Too long unix socket path. Max is 107 chars.");
             return -1;
         }
         unlink(self->port);
-        struct sockaddr_un* serv_addr = (struct sockaddr_un*) malloc(sizeof(struct sockaddr_un));
-        bzero((char*) serv_addr, sizeof(*serv_addr));
+
+        struct sockaddr_un* serv_addr = (struct sockaddr_un*) &self->sockaddr.ss;
+
+        memset((char*) serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sun_family = AF_UNIX;
         strncpy(serv_addr->sun_path, self->port, path_len);
         serv_addr->sun_path[path_len] = '\0';
 
-        self->sock_addr = (struct sockaddr*) serv_addr;
-        self->sock_addr_len = sizeof(*serv_addr);
+        self->sockaddr.slen = sizeof(struct sockaddr_un);
 
     } else { // ipv4 socket
-        struct sockaddr_in* serv_addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+        struct sockaddr_in* serv_addr = (struct sockaddr_in*) &self->sockaddr.ss;
 
-        bzero((char*) serv_addr, sizeof(*serv_addr));
+        memset((char*) serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sin_family = AF_INET;
         serv_addr->sin_addr.s_addr = inet_addr(self->host);
         serv_addr->sin_port = htons((uint16_t) atoi(self->port));
 
-        self->sock_addr = (struct sockaddr*) serv_addr;
-        self->sock_addr_len = sizeof(*serv_addr);
+        self->sockaddr.slen = sizeof(struct sockaddr_in);
     }
-    sa_family_t family = self->sock_addr->sa_family;
 
-    self->sock = socket(self->sock_addr->sa_family, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    self->sock = socket(self->sockaddr.ss.ss_family, SOCK_STREAM, IPPROTO_TCP);
 
     if (self->sock < 0) {
         cerror("Error creating socket");
         return -1;
     }
-    if (!evsrv_socket_set_nonblock(self->sock, true)) {
-        cerror("Error setting O_NONBLOCK");
+    if (evsrv_socket_set_nonblock(self->sock) < 0) {
+        cerror("Error setting socket %d to nonblock", self->sock);
     }
 
     int one = 1;
@@ -228,14 +223,14 @@ int evsrv_listen(evsrv* self) {
     }
 
 #if EVSRV_USE_TCP_NO_DELAY != 0
-    if (family == AF_INET || family == AF_INET6) {
+    if (self->sockaddr.ss.ss_family == AF_INET || self->sockaddr.ss.ss_family == AF_INET6) {
         if (setsockopt(self->sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0) {
             cerror("Error setting socket options: TCP_NODELAY");
         }
     }
 #endif
 
-    if (family == AF_INET || family == AF_INET6) {
+    if (self->sockaddr.ss.ss_family == AF_INET || self->sockaddr.ss.ss_family == AF_INET6) {
         if (setsockopt(self->sock, SOL_TCP, TCP_DEFER_ACCEPT, &one, sizeof(one)) < 0) {
             cerror("Error setting socket options: TCP_DEFER_ACCEPT");
         }
@@ -246,7 +241,7 @@ int evsrv_listen(evsrv* self) {
         cerror("Error setting socket options: SO_LINGER");
     }
 
-    if (bind(self->sock, self->sock_addr, self->sock_addr_len) < 0) {
+    if (bind(self->sock, (struct sockaddr*) &self->sockaddr.ss, self->sockaddr.slen) < 0) {
         cerror("Bind error");
         return -1;
     }
@@ -271,21 +266,19 @@ int evsrv_accept(evsrv* self) {
 }
 
 void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
-    evsrv* self = dSELFby(w, evsrv, accept_rw);
+    evsrv* self = SELFby(w, evsrv, accept_rw);
     if (EV_ERROR & revents) {
         cerror("error occured on accept");
         return;
     }
 
     while (1) {
-
-        struct sockaddr_in conn_addr;
-        socklen_t conn_len = sizeof(conn_addr);
-
+        struct evsrv_sockaddr conn_addr;
+        conn_addr.slen = sizeof(conn_addr.ss);
         int conn_sock;
 
         again:
-        conn_sock = accept(w->fd, (struct sockaddr*) &conn_addr, &conn_len);
+        conn_sock = accept(w->fd, (struct sockaddr*) &conn_addr.ss, &conn_addr.slen);
 
         if (conn_sock < 0) {
             switch (errno) {
@@ -302,6 +295,7 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
 
         evsrv_conn_info* conn_info = (evsrv_conn_info*) malloc(sizeof(evsrv_conn_info));
         conn_info->sock = conn_sock;
+        conn_info->addr = conn_addr;
         ++self->active_connections;
 
         evsrv_conn* conn = NULL;
@@ -317,8 +311,6 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
 
         if (unlikely(self->connections[conn_info->sock] != NULL)) {
             evsrv_conn_close(self->connections[conn_info->sock], 0);
-//            evsrv_conn_stop(self->connections[conn_info->sock]);
-//            evsrv_conn_clean(self->connections[conn_info->sock]);
         }
         self->connections[conn_info->sock] = conn;
 
@@ -388,13 +380,6 @@ void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
     }
 }
 
-bool evsrv_socket_set_nonblock(int fd, bool nonblocking) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0) return false;
-    flags = nonblocking ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
-    return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
-}
-
 
 
 
@@ -416,7 +401,7 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     self->on_read = NULL;
     self->on_graceful_close = NULL;
 
-    if (!evsrv_socket_set_nonblock(self->info->sock, true)) {
+    if (evsrv_socket_set_nonblock(self->info->sock) < 0) {
         cerror("Error setting O_NONBLOCK");
     }
     struct linger linger = { 1, 0 };
@@ -548,7 +533,6 @@ void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
                         break;
                     default:
                         cerror("connection failed while write [now]");
-                        evsrv_conn_shutdown(conn, EVSRV_SHUT_RDWR);
                         evsrv_conn_close(conn, errno);
                         return;
                 }
@@ -574,7 +558,7 @@ void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents) {
         return;
     }
 
-    evsrv_conn* self = dSELFby(w, evsrv_conn, rw);
+    evsrv_conn* self = SELFby(w, evsrv_conn, rw);
 
     evsrv_stop_timer(loop, &self->trw);
 
@@ -616,7 +600,7 @@ void _evsrv_conn_read_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents)
         cerror("error occured");
         return;
     }
-    evsrv_conn* self = dSELFby(w, evsrv_conn, trw);
+    evsrv_conn* self = SELFby(w, evsrv_conn, trw);
 
     ev_timer_stop(loop, &self->trw);
     cwarn("read timer triggered");
@@ -629,7 +613,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
         cerror("error occured");
         return;
     }
-    evsrv_conn* self = dSELFby(w, evsrv_conn, ww);
+    evsrv_conn* self = SELFby(w, evsrv_conn, ww);
 
     evsrv_stop_timer(loop, &self->tww);
 
@@ -712,7 +696,6 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
                     abort();
                 default:
                     cerror("connection failed while write [io]");
-                    evsrv_conn_shutdown(self, EVSRV_SHUT_RDWR);
                     evsrv_conn_close(self, errno);
                     return;
             }
@@ -726,7 +709,7 @@ void _evsrv_conn_write_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents
         cerror("error occured");
         return;
     }
-    evsrv_conn* self = dSELFby(w, evsrv_conn, tww);
+    evsrv_conn* self = SELFby(w, evsrv_conn, tww);
 
     ev_timer_stop(loop, &self->tww);
     cwarn("write timer triggered");
