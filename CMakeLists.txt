@@ -32,5 +32,8 @@ target_link_libraries(ex_srv evserver)
 add_executable(ex_server ex/ex_server.c)
 target_link_libraries(ex_server evserver)
 
-add_executable(ex_simple_echo_server ex/ex_simple_echo_server.c)
-target_link_libraries(ex_simple_echo_server evserver)
+add_executable(tcp_echo_server_simple demo/tcp_echo_server_simple.c)
+target_link_libraries(tcp_echo_server_simple evserver)
+
+add_executable(tcp_server_custom_conn demo/tcp_server_custom_conn.c)
+target_link_libraries(tcp_server_custom_conn evserver)

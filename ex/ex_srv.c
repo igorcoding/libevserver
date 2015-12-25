@@ -102,9 +102,11 @@ static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 }
 
 int main() {
+    struct ev_loop* loop = EV_DEFAULT;
     evsrv srv;
     evsrv_init(&srv, 1, "127.0.0.1", "9090");
 //    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
+    srv.loop = loop;
 
     ev_signal sig;
     ev_signal_init(&sig, signal_cb, SIGINT);
@@ -119,7 +121,7 @@ int main() {
     if (evsrv_listen(&srv) != -1) {
         ev_signal_start(srv.loop, &sig);
         evsrv_accept(&srv);
-        evsrv_run(&srv);
+        ev_run(loop, 0);
 //        int max_childs = 4;
 //        for (int i = 0; i < max_childs; ++i) {
 //            pid_t pid = fork();

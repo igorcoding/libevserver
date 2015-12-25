@@ -156,7 +156,7 @@ int main() {
     evserver_listen(&server);
     ev_signal_start(server.loop, &sig);
     evserver_accept(&server);
-    evserver_run(&server);
+    ev_run(server.loop, 0);
 
 
 //    int max_childs = 8;

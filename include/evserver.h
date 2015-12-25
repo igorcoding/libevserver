@@ -62,7 +62,6 @@ void evserver_clean(evserver* self);
 void evserver_listen(evserver* self);
 void evserver_accept(evserver* self);
 void evserver_notify_fork_child(evserver* self);
-void evserver_run(evserver* self);
 void evserver_stop(evserver* self);
 void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb);
 
@@ -114,7 +113,6 @@ void evsrv_clean(evsrv* self);
 int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);
 void evsrv_notify_fork_child(evsrv* self);
-void evsrv_run(evsrv* self);
 void evsrv_stop(evsrv* self);
 void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb);
 
