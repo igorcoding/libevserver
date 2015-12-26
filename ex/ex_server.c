@@ -130,7 +130,7 @@ static void on_my2_destroy(evsrv* self) {
 }
 
 static void on_gracefully_stopped(evserver* server) {
-    cdebug("Gracefully stopped evserver");
+    cwarn("Gracefully stopped evserver");
     evserver_clean(server);
     ev_loop_destroy(server->loop);
 }
