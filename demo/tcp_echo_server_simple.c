@@ -38,7 +38,6 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
 void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents) {
     ev_signal_stop(loop, w);
     evsrv* srv = (evsrv*) w->data;
-    evsrv_stop(srv);                                                       // stopping evsrv
-    evsrv_clean(srv);                                                      // cleaning it
+    evsrv_clean(srv);                                                      // cleaning evsrv
     ev_loop_destroy(loop);
 }

@@ -43,7 +43,7 @@ int main() {
 }
 
 void on_started(evsrv* srv) {
-    printf("Started echo demo server at %s:%s\n", srv->host, srv->port);
+    printf("Started demo server at %s:%s\n", srv->host, srv->port);
 }
 
 evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
@@ -78,7 +78,6 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
 void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents) {
     ev_signal_stop(loop, w);
     evsrv* srv = (evsrv*) w->data;
-    evsrv_stop(srv);                                                       // stopping evsrv
-    evsrv_clean(srv);                                                      // cleaning it
+    evsrv_clean(srv);                                                      // cleaning evsrv
     ev_loop_destroy(loop);
 }

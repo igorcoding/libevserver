@@ -88,6 +88,7 @@ void on_started_my2(evsrv* srv) {
 
 
 static evsrv* on_my1_create(evserver* self, size_t id, evserver_info* info) {
+    cwarn("create my1");
     my1_srv* s = (my1_srv*) malloc(sizeof(my1_srv));
     evsrv_init(&s->srv, id, info->host, info->port);
     s->srv.backlog = 500;
@@ -99,6 +100,7 @@ static evsrv* on_my1_create(evserver* self, size_t id, evserver_info* info) {
 }
 
 static void on_my1_destroy(evsrv* self) {
+    cwarn("destroy my1");
     my1_srv* s = (my1_srv*) self;
     evsrv_clean(&s->srv);
     free(s);
@@ -106,6 +108,7 @@ static void on_my1_destroy(evsrv* self) {
 
 
 static evsrv* on_my2_create(evserver* self, size_t id, evserver_info* info) {
+    cwarn("create my2");
     my2_srv* s = (my2_srv*) malloc(sizeof(my1_srv));
     evsrv_init(&s->srv, id, info->host, info->port);
     s->srv.backlog = 500;
@@ -117,6 +120,7 @@ static evsrv* on_my2_create(evserver* self, size_t id, evserver_info* info) {
 }
 
 static void on_my2_destroy(evsrv* self) {
+    cwarn("destroy my2");
     my2_srv* s = (my2_srv*) self;
     evsrv_clean(&s->srv);
     free(s);

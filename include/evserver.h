@@ -46,14 +46,24 @@ struct _evserver_info {
     c_cb_srv_destroy_t on_destroy;
 };
 
+typedef enum {
+    EVSERVER_IDLE,
+    EVSERVER_LISTENING,
+    EVSERVER_ACCEPTING,
+    EVSERVER_GRACEFULLY_STOPPING,
+    EVSERVER_STOPPED
+} evserver_state_t;
+
 struct _evserver {
     struct ev_loop* loop;
+    evserver_state_t state;
 
     c_cb_started_t on_started;
     c_cb_evserver_graceful_stop_t on_graceful_stop;
 
     evsrv** srvs;
     size_t srvs_len;
+    size_t stopped_srvs;
     int active_srvs;
 };
 
@@ -70,7 +80,7 @@ typedef enum {
     EVSRV_IDLE,
     EVSRV_LISTENING,
     EVSRV_ACCEPTING,
-    EVSRV_STOPPING,
+    EVSRV_GRACEFULLY_STOPPING,
     EVSRV_STOPPED
 } evsrv_state_t;
 

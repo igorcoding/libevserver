@@ -45,8 +45,10 @@ void evserver_init(evserver* self, evserver_info* servers, size_t servers_count)
         self->srvs[i]->on_destroy = servers[i].on_destroy;
     }
     self->active_srvs = 0;
+    self->stopped_srvs = 0;
     self->on_started = NULL;
     self->on_graceful_stop = NULL;
+    self->state = EVSERVER_IDLE;
 }
 
 void evserver_clean(evserver* self) {
@@ -55,7 +57,9 @@ void evserver_clean(evserver* self) {
         self->srvs[i] = NULL;
     }
     free(self->srvs);
+    self->srvs = NULL;
     self->srvs_len = 0;
+    self->active_srvs = 0;
 }
 
 void evserver_listen(evserver* self) {
@@ -65,6 +69,7 @@ void evserver_listen(evserver* self) {
             cerror("Listen of server [#%lu] %s:%s failed", srv->id, srv->host, srv->port);
         }
     }
+    self->state = EVSERVER_LISTENING;
 }
 
 void evserver_accept(evserver* self) {
@@ -74,8 +79,11 @@ void evserver_accept(evserver* self) {
             ++self->active_srvs;
         }
     }
-    if (self->on_started) {
-        self->on_started(self);
+    if (self->active_srvs > 0) {
+        self->state = EVSERVER_ACCEPTING;
+        if (self->on_started) {
+            self->on_started(self);
+        }
     }
 }
 
@@ -89,12 +97,16 @@ void evserver_stop(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         evsrv* srv = self->srvs[i];
         evsrv_stop(srv);
-        --self->active_srvs;
+        if (srv->state == EVSRV_ACCEPTING) {
+            --self->active_srvs;
+        }
+        ++self->stopped_srvs;
     }
 }
 
 void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb) {
     cwarn("evserver graceful stop started");
+    self->state = EVSERVER_GRACEFULLY_STOPPING;
     self->on_graceful_stop = cb;
     for (size_t i = 0; i < self->srvs_len; ++i) {
         evsrv* srv = self->srvs[i];
@@ -102,11 +114,11 @@ void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb) {
             evsrv_graceful_stop(srv, _evserver_graceful_stop_cb);
         } else {
             evsrv_stop(srv);
-            --self->active_srvs;
-            if (self->active_srvs == 0) {
-                self->on_graceful_stop(self);
-            }
+            ++self->stopped_srvs;
         }
+    }
+    if (self->state != EVSERVER_STOPPED && self->stopped_srvs == self->srvs_len) {
+        self->on_graceful_stop(self);
     }
 }
 
@@ -114,7 +126,9 @@ void _evserver_graceful_stop_cb(evsrv* stopped_srv) {
     evserver* server = stopped_srv->server;
     assert("server instance should not be NULL" && server != NULL);
     --server->active_srvs;
-    if (server->active_srvs == 0) {
+    ++server->stopped_srvs;
+    if (server->stopped_srvs == server->srvs_len) {
+        server->state = EVSERVER_STOPPED;
         server->on_graceful_stop(server);
     }
 }
@@ -150,21 +164,19 @@ void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
 
 
 void evsrv_clean(evsrv* self) {
-    evsrv_stop_io(self->loop, &self->accept_rw);
+    if (self->state != EVSRV_STOPPED) {
+        evsrv_stop_io(self->loop, &self->accept_rw);
 
+        if (self->sock > 0) {
+            close(self->sock);
+            self->sock = -1;
+        }
 
-    if (self->sock > 0) {
-        close(self->sock);
-        self->sock = -1;
-    }
-
-    for (size_t i = 0; i < self->connections_len; ++i) {
-        if (self->connections[i] != NULL) {
+        for (size_t i = 0; i < self->connections_len; ++i) {
             evsrv_conn* conn = self->connections[i];
-            evsrv_conn_stop(conn);
-            evsrv_conn_clean(conn);
-            free(conn);
-            self->connections[i] = NULL;
+            if (conn != NULL) {
+                evsrv_conn_close(conn, 0);
+            }
         }
     }
     free(self->connections);
@@ -175,7 +187,7 @@ int evsrv_listen(evsrv* self) {
 
     if (strncasecmp(self->host, "unix/", 5) == 0) { // unix domain socket
         size_t path_len = strlen(self->port);
-        if (path_len >= 108) {
+        if (path_len > 107) {
             cwarn("Too long unix socket path. Max is 107 chars.");
             return -1;
         }
@@ -202,6 +214,7 @@ int evsrv_listen(evsrv* self) {
     }
 
     self->sock = socket(self->sockaddr.ss.ss_family, SOCK_STREAM, IPPROTO_TCP);
+    ev_io_init(&self->accept_rw, _evsrv_accept_cb, self->sock, EV_READ);
 
     if (self->sock < 0) {
         cerror("Error creating socket");
@@ -250,7 +263,6 @@ int evsrv_listen(evsrv* self) {
 }
 
 int evsrv_accept(evsrv* self) {
-    ev_io_init(&self->accept_rw, _evsrv_accept_cb, self->sock, EV_READ);
     ev_io_start(self->loop, &self->accept_rw);
     self->state = EVSRV_ACCEPTING;
     if (self->on_started) {
@@ -334,6 +346,7 @@ void evsrv_stop(evsrv* self) {
             evsrv_conn_close(conn, 0);
         }
     }
+    self->state = EVSRV_STOPPED;
 }
 
 void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
@@ -345,9 +358,9 @@ void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
         self->sock = -1;
     }
 
-
-    self->state = EVSRV_STOPPING;
+    self->state = EVSRV_GRACEFULLY_STOPPING;
     if (self->active_connections == 0) {
+        self->state = EVSRV_STOPPED;
         cb(self);
     } else {
         self->on_graceful_stop = cb;
@@ -356,7 +369,11 @@ void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
             if (conn != NULL) {
                 int sock = conn->info->sock;
                 cwarn("[%d] <on_graceful_stop>", sock);
-                conn->on_graceful_close(conn);
+                if (conn->on_graceful_close) {
+                    conn->on_graceful_close(conn);
+                } else {
+                    evsrv_conn_close(conn, 0);
+                }
                 cwarn("[%d] </on_graceful_stop>", sock);
             }
         }
@@ -475,7 +492,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     --srv->active_connections;
     cwarn("[%d] </evsrv_conn_close>", sock);
 
-    if (srv->active_connections == 0 && srv->state == EVSRV_STOPPING) {
+    if (srv->active_connections == 0 && srv->state == EVSRV_GRACEFULLY_STOPPING) {
         cwarn("after graceful shutdown");
         srv->state = EVSRV_STOPPED;
         srv->on_graceful_stop(srv);
