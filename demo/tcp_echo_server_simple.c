@@ -39,5 +39,6 @@ void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents) {
     ev_signal_stop(loop, w);
     evsrv* srv = (evsrv*) w->data;
     evsrv_clean(srv);                                                      // cleaning evsrv
-    ev_loop_destroy(loop);
+    ev_break(loop, EVUNLOOP_ALL);
+    ev_loop_destroy(srv->loop);
 }

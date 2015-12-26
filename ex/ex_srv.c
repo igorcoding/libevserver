@@ -92,6 +92,7 @@ void on_started(evsrv* srv) {
 static void on_gracefully_stopped(evsrv* srv) {
     cwarn("Gracefully stopped %s:%s", srv->host, srv->port);
     evsrv_clean(srv);
+    ev_break(srv->loop, EVUNLOOP_ALL);
     ev_loop_destroy(srv->loop);
 }
 
@@ -133,7 +134,7 @@ int main() {
 //
 //            } else if (pid == 0) {
 //                // child
-//                evsrv_notify_fork_child(&srv);
+//                ev_loop_fork(self->loop);
 //                evsrv_accept(&srv);
 //                evsrv_run(&srv);
 //                break;

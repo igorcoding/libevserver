@@ -88,12 +88,6 @@ void evserver_accept(evserver* self) {
     }
 }
 
-void evserver_notify_fork_child(evserver* self) {
-    for (size_t i = 0; i < self->srvs_len; ++i) {
-        evsrv_notify_fork_child(self->srvs[i]);
-    }
-}
-
 void evserver_stop(evserver* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         evsrv* srv = self->srvs[i];
@@ -315,10 +309,6 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
             self->on_conn_ready(conn);
         }
     }
-}
-
-void evsrv_notify_fork_child(evsrv* self) {
-    ev_loop_fork(self->loop);
 }
 
 void evsrv_stop(evsrv* self) {

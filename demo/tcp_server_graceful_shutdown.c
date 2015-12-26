@@ -94,5 +94,6 @@ void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 void on_gracefully_stopped(evsrv* srv) {
     cwarn("Gracefully stopped %s:%s", srv->host, srv->port);
     evsrv_clean(srv);                                                      // cleaning server
+    ev_break(srv->loop, EVUNLOOP_ALL);
     ev_loop_destroy(srv->loop);
 }

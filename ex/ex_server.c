@@ -132,6 +132,7 @@ static void on_my2_destroy(evsrv* self) {
 static void on_gracefully_stopped(evserver* server) {
     cwarn("Gracefully stopped evserver");
     evserver_clean(server);
+    ev_break(server->loop, EVUNLOOP_ALL);
     ev_loop_destroy(server->loop);
 }
 
@@ -174,7 +175,7 @@ int main() {
 //
 //        } else if (pid == 0) {
 //            // child
-//            evserver_notify_fork_child(&server);
+//            ev_loop_fork(self->loop);
 //            evserver_accept(&server);
 //            evserver_run(&server);
 //            break;
