@@ -55,7 +55,7 @@ evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     c->conn.rbuf = (char*) malloc(1024);                                   // allocating buffer with size 1024
     c->conn.rlen = 1024;                                                   // make sure that you save the buffer size in rlen
     c->conn.on_read = (c_cb_read_t) on_read;                               // setting on_read callback for this connection
-    c->conn.on_graceful_close = (c_cb_graceful_close_t) on_conn_graceful;  // setting on_read callback for this connection
+    c->conn.on_graceful_close = (c_cb_graceful_close_t) on_conn_graceful;  // setting on_graceful_close callback - it will be called when graceful shutdown requested
 
     c->message = "Hello from TCP server!";                                 // here goes our custom message
 
@@ -79,20 +79,20 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
 }
 
 bool on_conn_graceful(tcpserver_conn* c) {
-    evsrv_write(&c->conn, "Server is shutting down!", 0);
-    evsrv_conn_shutdown(&c->conn, EVSRV_SHUT_RD);
-    evsrv_conn_close(&c->conn, 0);
-    return true;
+    evsrv_write(&c->conn, "Server is shutting down!", 0);                  // sending to each client that is server is shutting down
+    evsrv_conn_shutdown(&c->conn, EVSRV_SHUT_RD);                          // shutdown connection for READ
+    evsrv_conn_close(&c->conn, 0);                                         // closing connection (i.e. destroying it)
+    return true;                                                           // returning true as we closed connection (if we didn't close it - false has to be returned)
 }
 
 void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents) {
     ev_signal_stop(loop, w);
     evsrv* srv = (evsrv*) w->data;
-    evsrv_graceful_stop(srv, on_gracefully_stopped);                       // cleaning evsrv
+    evsrv_graceful_stop(srv, on_gracefully_stopped);                       // gracefully shutting down server with callback that has to be called in the end
 }
 
 void on_gracefully_stopped(evsrv* srv) {
     cwarn("Gracefully stopped %s:%s", srv->host, srv->port);
-    evsrv_clean(srv);
+    evsrv_clean(srv);                                                      // cleaning server
     ev_loop_destroy(srv->loop);
 }
