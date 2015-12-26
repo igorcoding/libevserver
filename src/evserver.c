@@ -165,19 +165,7 @@ void evsrv_init(evsrv* self, size_t id, const char* host, const char* port) {
 
 void evsrv_clean(evsrv* self) {
     if (self->state != EVSRV_STOPPED) {
-        evsrv_stop_io(self->loop, &self->accept_rw);
-
-        if (self->sock > 0) {
-            close(self->sock);
-            self->sock = -1;
-        }
-
-        for (size_t i = 0; i < self->connections_len; ++i) {
-            evsrv_conn* conn = self->connections[i];
-            if (conn != NULL) {
-                evsrv_conn_close(conn, 0);
-            }
-        }
+        evsrv_stop(self);
     }
     free(self->connections);
     self->server = NULL;
