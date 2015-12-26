@@ -1,6 +1,8 @@
 #include <stdio.h>
 
-#include "../include/evserver.h"
+#define DEBUG 1
+
+#include "evserver.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -21,7 +23,7 @@ typedef struct {
 
 
 static void on_read(evsrv_conn* conn, ssize_t nread);
-static void on_graceful_conn_close(evsrv_conn* conn);
+static bool on_graceful_conn_close(evsrv_conn* conn);
 
 static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
@@ -70,11 +72,12 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
     }
 }
 
-static void on_graceful_conn_close(evsrv_conn* conn) {
+static bool on_graceful_conn_close(evsrv_conn* conn) {
     int sock = conn->info->sock;
-    cwarn("[%d] user: on_graceful_conn_close", sock);
+    cdebug("[%d] user: on_graceful_conn_close", sock);
     evsrv_conn_close(conn, 0);
-    cwarn("[%d] user: done on_graceful_conn_close", sock);
+    cdebug("[%d] user: done on_graceful_conn_close", sock);
+    return true;
 }
 
 void on_started_my1(evsrv* srv) {
@@ -88,7 +91,7 @@ void on_started_my2(evsrv* srv) {
 
 
 static evsrv* on_my1_create(evserver* self, size_t id, evserver_info* info) {
-    cwarn("create my1");
+    cdebug("create my1");
     my1_srv* s = (my1_srv*) malloc(sizeof(my1_srv));
     evsrv_init(&s->srv, id, info->host, info->port);
     s->srv.backlog = 500;
@@ -100,7 +103,7 @@ static evsrv* on_my1_create(evserver* self, size_t id, evserver_info* info) {
 }
 
 static void on_my1_destroy(evsrv* self) {
-    cwarn("destroy my1");
+    cdebug("destroy my1");
     my1_srv* s = (my1_srv*) self;
     evsrv_clean(&s->srv);
     free(s);
@@ -108,7 +111,7 @@ static void on_my1_destroy(evsrv* self) {
 
 
 static evsrv* on_my2_create(evserver* self, size_t id, evserver_info* info) {
-    cwarn("create my2");
+    cdebug("create my2");
     my2_srv* s = (my2_srv*) malloc(sizeof(my1_srv));
     evsrv_init(&s->srv, id, info->host, info->port);
     s->srv.backlog = 500;
@@ -120,14 +123,14 @@ static evsrv* on_my2_create(evserver* self, size_t id, evserver_info* info) {
 }
 
 static void on_my2_destroy(evsrv* self) {
-    cwarn("destroy my2");
+    cdebug("destroy my2");
     my2_srv* s = (my2_srv*) self;
     evsrv_clean(&s->srv);
     free(s);
 }
 
 static void on_gracefully_stopped(evserver* server) {
-    cwarn("Gracefully stopped evserver");
+    cdebug("Gracefully stopped evserver");
     evserver_clean(server);
     ev_loop_destroy(server->loop);
 }

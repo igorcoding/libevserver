@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <strings.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #include "evserver.h"
 #include "evsrv_sockaddr.h"
@@ -105,7 +106,7 @@ void evserver_stop(evserver* self) {
 }
 
 void evserver_graceful_stop(evserver* self, c_cb_evserver_graceful_stop_t cb) {
-    cwarn("evserver graceful stop started");
+    cdebug("evserver graceful stop started");
     self->state = EVSERVER_GRACEFULLY_STOPPING;
     self->on_graceful_stop = cb;
     for (size_t i = 0; i < self->srvs_len; ++i) {
@@ -338,7 +339,7 @@ void evsrv_stop(evsrv* self) {
 }
 
 void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
-    cwarn("graceful stop started");
+    cdebug("graceful stop started");
     evsrv_stop_io(self->loop, &self->accept_rw);
 
     if (self->sock > 0) {
@@ -356,13 +357,25 @@ void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
             evsrv_conn* conn = self->connections[i];
             if (conn != NULL) {
                 int sock = conn->info->sock;
-                cwarn("[%d] <on_graceful_stop>", sock);
+                cdebug("[%d] <on_graceful_stop>", sock);
+
+                bool closed = true;
                 if (conn->on_graceful_close) {
-                    conn->on_graceful_close(conn);
+                    closed = conn->on_graceful_close(conn);
+                    if (!closed) {
+                        conn->state = EVSRV_CONN_PENDING_CLOSE;
+                    }
                 } else {
                     evsrv_conn_close(conn, 0);
                 }
-                cwarn("[%d] </on_graceful_stop>", sock);
+
+                cdebug("[%d] </on_graceful_stop>", sock);
+
+                if (closed && self->active_connections == 0) {
+                    self->state = EVSRV_STOPPED;
+                    self->on_graceful_stop(self);
+                    break;
+                }
             }
         }
     }
@@ -425,7 +438,7 @@ void evsrv_conn_stop(evsrv_conn* self) {
 }
 
 void evsrv_conn_clean(evsrv_conn* self) {
-    cwarn("[%d] evsrv_conn_clean", self->info->sock);
+    cdebug("[%d] evsrv_conn_clean", self->info->sock);
     if (self->info->sock > -1) {
         close(self->info->sock);
         self->info->sock = -1;
@@ -459,8 +472,9 @@ void evsrv_conn_shutdown(evsrv_conn* self, int how) {
 void evsrv_conn_close(evsrv_conn* self, int err) {
     int sock = self->info->sock;
     evsrv* srv = self->srv;
+    evsrv_conn_state_t prev_state = self->state;
 
-    cwarn("[%d] <evsrv_conn_close>", sock);
+    cdebug("[%d] <evsrv_conn_close>", sock);
     self->state = EVSRV_CONN_CLOSING;
     evsrv_conn_stop(self);
     if (self->srv->on_conn_close) {
@@ -478,10 +492,12 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
         srv->connections[sock] = NULL;
     }
     --srv->active_connections;
-    cwarn("[%d] </evsrv_conn_close>", sock);
+    cdebug("[%d] </evsrv_conn_close>", sock);
 
-    if (srv->active_connections == 0 && srv->state == EVSRV_GRACEFULLY_STOPPING) {
-        cwarn("after graceful shutdown");
+    if (prev_state == EVSRV_CONN_PENDING_CLOSE &&
+            srv->active_connections == 0 &&
+            srv->state == EVSRV_GRACEFULLY_STOPPING) {
+        cdebug("after graceful shutdown");
         srv->state = EVSRV_STOPPED;
         srv->on_graceful_stop(srv);
     }

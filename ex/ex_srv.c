@@ -1,6 +1,8 @@
 #include <stdio.h>
 
-#include "../include/evserver.h"
+#define DEBUG 1
+#include "util.h"
+#include "evserver.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -11,7 +13,7 @@ typedef struct {
 } my1_conn;
 
 static void on_read(evsrv_conn* conn, ssize_t nread);
-static void on_graceful_conn_close(evsrv_conn* conn);
+static bool on_graceful_conn_close(evsrv_conn* conn);
 static void on_graceful_conn_timeout(struct ev_loop* loop, ev_timer* timer, int revents) {
     ev_timer_stop(loop, timer);
 
@@ -72,13 +74,14 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
     }
 }
 
-static void on_graceful_conn_close(evsrv_conn* conn) {
+static bool on_graceful_conn_close(evsrv_conn* conn) {
     my1_conn* c = (my1_conn*) conn;
     int sock = conn->info->sock;
     cwarn("[%d] user: on_graceful_conn_close", sock);
 //    evsrv_conn_close(conn, 0);
     ev_timer_start(conn->srv->loop, &c->tw);
     cwarn("[%d] user: done on_graceful_conn_close", sock);
+    return false;
 }
 
 void on_started(evsrv* srv) {

@@ -4,6 +4,7 @@
 #include <ev.h>
 #include <stdint.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 #include "platform.h"
 #include "util.h"
@@ -36,7 +37,7 @@ typedef void        (* c_cb_read_t)(evsrv_conn*, ssize_t);
 
 typedef void        (* c_cb_evserver_graceful_stop_t)(evserver*);
 typedef void        (* c_cb_evsrv_graceful_stop_t)(evsrv*);
-typedef void        (* c_cb_graceful_close_t)(evsrv_conn*);
+typedef bool        (* c_cb_graceful_close_t)(evsrv_conn*);
 
 struct _evserver_info {
     char* host;
@@ -132,17 +133,19 @@ struct _evsrv_conn_info {
     struct evsrv_sockaddr addr;
 };
 
+typedef enum {
+    EVSRV_CONN_CREATED,
+    EVSRV_CONN_ACTIVE,
+    EVSRV_CONN_SHUTDOWN,
+    EVSRV_CONN_CLOSING,
+    EVSRV_CONN_PENDING_CLOSE,
+    EVSRV_CONN_STOPPED,
+} evsrv_conn_state_t;
+
 struct _evsrv_conn {
     evsrv* srv;
     evsrv_conn_info* info;
-    enum {
-        EVSRV_CONN_CREATED,
-        EVSRV_CONN_ACTIVE,
-        EVSRV_CONN_SHUTDOWN,
-        EVSRV_CONN_CLOSING,
-        EVSRV_CONN_CLOSING_FORCE,
-        EVSRV_CONN_STOPPED,
-    } state;
+    evsrv_conn_state_t state;
 
     ev_io rw;
     ev_timer trw;

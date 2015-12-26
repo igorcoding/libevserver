@@ -14,6 +14,18 @@
     } while(0)
 #endif
 
+#ifndef cdebug
+#if DEBUG == 0 /*TODO: weird that it os not working*/
+#define cdebug(fmt, ...) do{ \
+        fprintf(stderr, "[DEBU] %0.6f %s:%d: ", ev_now(EV_DEFAULT), __FILE__, __LINE__); \
+        fprintf(stderr, fmt, ##__VA_ARGS__); \
+        if (fmt[strlen(fmt) - 1] != 0x0a) { fprintf(stderr, "\n"); } \
+    } while(0)
+#else
+#define cdebug(fmt, ...) do{} while(0)
+#endif
+#endif
+
 #ifndef cerror
 #define cerror(fmt, ...) do{ \
         fprintf(stderr, "[ERR] %0.6f %s:%d: ", ev_now(EV_DEFAULT), __FILE__, __LINE__); \

@@ -37,3 +37,6 @@ target_link_libraries(tcp_echo_server_simple evserver)
 
 add_executable(tcp_server_custom_conn demo/tcp_server_custom_conn.c)
 target_link_libraries(tcp_server_custom_conn evserver)
+
+add_executable(tcp_server_graceful_shutdown demo/tcp_server_graceful_shutdown.c)
+target_link_libraries(tcp_server_graceful_shutdown evserver)
