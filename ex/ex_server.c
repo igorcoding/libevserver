@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#define DEBUG 1
 
+#include "util.h"
 #include "evserver.h"
 #include <stdlib.h>
 #include <stddef.h>

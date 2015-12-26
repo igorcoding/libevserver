@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 #include "platform.h"
-#include "util.h"
 #include "evsrv_sockaddr.h"
 
 #ifndef EVSRV_USE_TCP_NO_DELAY
@@ -89,7 +88,6 @@ struct _evsrv {
     evserver* server;
     size_t id;
     evsrv_state_t state;
-    time_t now;
 
     const char* host;
     const char* port;

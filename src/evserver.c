@@ -12,7 +12,7 @@
 #include <stdbool.h>
 
 #include "evserver.h"
-#include "evsrv_sockaddr.h"
+#include "util.h"
 
 #ifndef IOV_MAX
 #  ifdef UIO_MAXIOV
@@ -397,6 +397,7 @@ void evsrv_conn_init(evsrv_conn* self, evsrv* srv, evsrv_conn_info* info) {
     if (evsrv_socket_set_nonblock(self->info->sock) < 0) {
         cerror("Error setting socket %d to nonblock", self->info->sock);
     }
+
     struct linger linger = { 1, 0 };
     if (setsockopt(self->info->sock, SOL_SOCKET, SO_LINGER, &linger, (socklen_t) sizeof(linger)) < 0) {
         cerror("Error setting socket options");
@@ -424,7 +425,6 @@ void evsrv_conn_stop(evsrv_conn* self) {
     evsrv_stop_timer(self->srv->loop, &self->tww);
 
     self->state = EVSRV_CONN_STOPPED;
-
 }
 
 void evsrv_conn_clean(evsrv_conn* self) {
