@@ -171,7 +171,7 @@ void evsrv_conn_clean(evsrv_conn* self);
 void evsrv_conn_shutdown(evsrv_conn* self, int how);
 void evsrv_conn_close(evsrv_conn* self, int err);
 
-void evsrv_write(evsrv_conn* conn, const char* buf, size_t len);
+void evsrv_conn_write(evsrv_conn* conn, const char* buf, size_t len);
 
 
 #define evsrv_stop_timer(loop, ev) do { \

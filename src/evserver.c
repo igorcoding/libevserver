@@ -493,7 +493,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     }
 }
 
-void evsrv_write(evsrv_conn* conn, const char* buf, size_t len) {
+void evsrv_conn_write(evsrv_conn* conn, const char* buf, size_t len) {
     if ( len == 0 ) len = strlen(buf);
 
     if (conn->wuse) {

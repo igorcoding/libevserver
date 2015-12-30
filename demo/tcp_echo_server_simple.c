@@ -31,7 +31,7 @@ void on_started(evsrv* srv) {
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    evsrv_write(conn, conn->rbuf, (size_t) nread);                         // just replying with what we got
+    evsrv_conn_write(conn, conn->rbuf, (size_t) nread);                         // just replying with what we got
     conn->ruse = 0;                                                        // setting ruse to 0, in order to not exceed read buffer size in future
 }
 

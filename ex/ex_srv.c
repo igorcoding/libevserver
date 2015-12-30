@@ -57,7 +57,7 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
             break;
         }
 
-        evsrv_write(conn, rbuf, size);
+        evsrv_conn_write(conn, rbuf, size);
         rbuf += size;
 
         if (rbuf == end) {

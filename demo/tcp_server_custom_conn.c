@@ -71,7 +71,7 @@ void on_conn_close(evsrv_conn* conn, int err) {
 void on_read(evsrv_conn* conn, ssize_t nread) {
     tcpserver_conn* c = (tcpserver_conn*) conn;
 
-    evsrv_write(conn, c->message, 0);                                      // just replying with out custom message
+    evsrv_conn_write(conn, c->message, 0);                                      // just replying with out custom message
     conn->ruse = 0;                                                        // setting ruse to 0, in order to not exceed read buffer size in future
 }
 
