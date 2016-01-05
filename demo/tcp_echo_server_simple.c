@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "evserver.h"
+#include "evsrv_manager.h"
 
 void on_started(evsrv* srv);
 void on_read(evsrv_conn* conn, ssize_t nread);
@@ -10,7 +10,7 @@ void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents);
 
 int main() {
     evsrv srv;
-    evsrv_init(&srv, 1, "127.0.0.1", "9090");
+    evsrv_init(&srv, EVSRV_PROTO_TCP, "127.0.0.1", "9090");
 
     ev_signal sig;
     ev_signal_init(&sig, sigint_cb, SIGINT);
@@ -31,7 +31,7 @@ void on_started(evsrv* srv) {
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    evsrv_conn_write(conn, conn->rbuf, (size_t) nread);                         // just replying with what we got
+    evsrv_conn_write(conn, conn->rbuf, (size_t) nread);                    // just replying with what we got
     conn->ruse = 0;                                                        // setting ruse to 0, in order to not exceed read buffer size in future
 }
 

@@ -1,5 +1,4 @@
-#include "util.h"
-#include <sys/socket.h>
+#include "common.h"
 #include <fcntl.h>
 
 int evsrv_socket_set_nonblock(int fd) {

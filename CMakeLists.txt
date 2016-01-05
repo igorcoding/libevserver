@@ -11,15 +11,19 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -std=gnu99")
 include_directories(include/)
 
 set(HEADER_FILES
-        include/evserver.h
-        include/evsrv_sockaddr.h
+        include/common.h
         include/util.h
-        include/platform.h
+        include/evsrv_sockaddr.h
+        include/evsrv_manager.h
+        include/evsrv.h
+        include/evsrv_conn.h
 )
 
 set(SOURCE_FILES
-        src/evserver.c
-        src/util.c
+        src/common.c
+        src/evsrv_manager.c
+        src/evsrv.c
+        src/evsrv_conn.c
 )
 
 add_library(evserver ${SOURCE_FILES} ${HEADER_FILES})

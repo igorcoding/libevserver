@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "evserver.h"
+#include "evsrv_manager.h"
 
 
 // We define a custom connection with some extra data.
@@ -12,7 +12,7 @@ typedef struct {
 } tcpserver_conn;
 
 void on_started(evsrv* srv);
-evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info);
+evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info);
 void on_conn_close(evsrv_conn* conn, int err);
 void on_read(evsrv_conn* conn, ssize_t nread);
 bool on_conn_graceful(tcpserver_conn* c);
@@ -24,7 +24,7 @@ int main() {
     struct ev_loop* loop = EV_DEFAULT;
 
     evsrv srv;
-    evsrv_init(&srv, 1, "127.0.0.1", "9090");
+    evsrv_init(&srv, EVSRV_PROTO_TCP, "127.0.0.1", "9090");
     srv.loop = loop;
 
     ev_signal sig;
@@ -48,7 +48,7 @@ void on_started(evsrv* srv) {
     printf("Started demo server at %s:%s\n", srv->host, srv->port);
 }
 
-evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
+evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     tcpserver_conn* c = (tcpserver_conn*) malloc(sizeof(tcpserver_conn));  // allocating memory for our connection
     evsrv_conn_init(&c->conn, srv, info);                                  // initializing evsrv_conn
 
@@ -74,12 +74,12 @@ void on_conn_close(evsrv_conn* conn, int err) {
 void on_read(evsrv_conn* conn, ssize_t nread) {
     tcpserver_conn* c = (tcpserver_conn*) conn;
 
-    evsrv_conn_write(conn, c->message, 0);                                      // just replying with out custom message
+    evsrv_conn_write(conn, c->message, 0);                                 // just replying with out custom message
     conn->ruse = 0;                                                        // setting ruse to 0, in order to not exceed read buffer size in future
 }
 
 bool on_conn_graceful(tcpserver_conn* c) {
-    evsrv_conn_write(&c->conn, "Server is shutting down!", 0);                  // sending to each client that is server is shutting down
+    evsrv_conn_write(&c->conn, "Server is shutting down!", 0);             // sending to each client that is server is shutting down
     evsrv_conn_shutdown(&c->conn, EVSRV_SHUT_RD);                          // shutdown connection for READ
     evsrv_conn_close(&c->conn, 0);                                         // closing connection (i.e. destroying it)
     return true;                                                           // returning true as we closed connection (if we didn't close it - false has to be returned)

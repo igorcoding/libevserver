@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "util.h"
-#include "evserver.h"
+#include "evsrv_manager.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -21,7 +21,7 @@ static void on_graceful_conn_timeout(struct ev_loop* loop, ev_timer* timer, int 
     evsrv_conn_close(&c->conn, 0);
 }
 
-static evsrv_conn* on_conn_create(evsrv* srv, evsrv_conn_info* info) {
+static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
@@ -107,7 +107,7 @@ static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 int main() {
     struct ev_loop* loop = EV_DEFAULT;
     evsrv srv;
-    evsrv_init(&srv, 1, "127.0.0.1", "9090");
+    evsrv_init(&srv, EVSRV_PROTO_TCP, "127.0.0.1", "9090");
 //    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
     srv.loop = loop;
 

@@ -1,5 +1,5 @@
-#ifndef LIBEVSERVER_SOCKADDR_UNION_H
-#define LIBEVSERVER_SOCKADDR_UNION_H
+#ifndef LIBEVSERVER_EVSRV_SOCKADDR_H
+#define LIBEVSERVER_EVSRV_SOCKADDR_H
 
 #include <sys/un.h>
 #include <netinet/in.h>
@@ -9,4 +9,4 @@ struct evsrv_sockaddr {
     socklen_t slen;
 };
 
-#endif //LIBEVSERVER_SOCKADDR_UNION_H
+#endif //LIBEVSERVER_EVSRV_SOCKADDR_H
