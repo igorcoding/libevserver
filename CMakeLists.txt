@@ -13,7 +13,6 @@ include_directories(include/)
 set(HEADER_FILES
         include/common.h
         include/util.h
-        include/evsrv_sockaddr.h
         include/evsrv_manager.h
         include/evsrv.h
         include/evsrv_conn.h

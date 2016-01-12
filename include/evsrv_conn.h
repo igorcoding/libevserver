@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include "common.h"
-#include "evsrv_sockaddr.h"
 
 typedef struct _evsrv_conn evsrv_conn;
 typedef struct _evsrv evsrv;

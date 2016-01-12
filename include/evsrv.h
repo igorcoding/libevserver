@@ -5,7 +5,6 @@
 #include <ev.h>
 
 #include "common.h"
-#include "evsrv_sockaddr.h"
 #include "evsrv_conn.h"
 
 typedef void        (* c_cb_started_t)(void*);

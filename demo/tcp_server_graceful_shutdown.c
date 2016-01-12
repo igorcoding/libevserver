@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "evsrv_manager.h"
+#include "evsrv.h"
 
 
 // We define a custom connection with some extra data.
@@ -42,6 +42,8 @@ int main() {
         evsrv_accept(&srv);                                                // beginning to accept connections
         ev_run(loop, 0);
     }
+    evsrv_clean(&srv);                                                     // cleaning srv
+    ev_loop_destroy(srv.loop);
 }
 
 void on_started(evsrv* srv) {
@@ -93,7 +95,5 @@ void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 
 void on_gracefully_stopped(evsrv* srv) {
     printf("Gracefully stopped %s:%s", srv->host, srv->port);
-    evsrv_clean(srv);                                                      // cleaning server
-    ev_break(srv->loop, EVUNLOOP_ALL);
-    ev_loop_destroy(srv->loop);
+    ev_break(srv->loop, EVBREAK_ALL);
 }

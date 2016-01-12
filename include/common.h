@@ -2,10 +2,17 @@
 #define LIBEVSERVER_COMMON_H
 
 #include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
 
 enum evsrv_proto {
     EVSRV_PROTO_TCP,
     EVSRV_PROTO_UDP
+};
+
+struct evsrv_sockaddr {
+    struct sockaddr_storage ss;
+    socklen_t slen;
 };
 
 #ifndef IOV_MAX
