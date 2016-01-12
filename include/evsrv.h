@@ -2,6 +2,7 @@
 #define LIBEVSERVER_EVSRV_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include <ev.h>
 
 #include "common.h"
@@ -51,7 +52,7 @@ struct _evsrv {
 
     c_cb_evsrv_graceful_stop_t on_graceful_stop;
 
-    int active_connections;
+    int32_t active_connections;
     evsrv_conn** connections;
     size_t connections_len;
 

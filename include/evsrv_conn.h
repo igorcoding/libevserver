@@ -2,6 +2,7 @@
 #define LIBEVSERVER_EVSRV_CONN_H
 
 #include <ev.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 #include "common.h"
@@ -37,14 +38,14 @@ struct _evsrv_conn {
     ev_io ww;
     ev_timer tww;
 
-    char* rbuf;
-    uint32_t ruse;
-    uint32_t rlen;
+    int8_t* rbuf;
+    size_t ruse;
+    size_t rlen;
 
     struct iovec* wbuf;
-    uint32_t wuse;
-    uint32_t wlen;
-    int wnow;
+    size_t wuse;
+    size_t wlen;
+    bool wnow;
 
     c_cb_read_t on_read;
     c_cb_graceful_close_t on_graceful_close;
@@ -59,6 +60,6 @@ void evsrv_conn_clean(evsrv_conn* self);
 void evsrv_conn_shutdown(evsrv_conn* self, int how);
 void evsrv_conn_close(evsrv_conn* self, int err);
 
-void evsrv_conn_write(evsrv_conn* conn, const char* buf, size_t len);
+void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len);
 
 #endif //LIBEVSERVER_EVSRV_CONN_H

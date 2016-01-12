@@ -25,7 +25,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
-    c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
+    c->conn.rbuf = (int8_t*) malloc(EVSRV_DEFAULT_BUF_LEN);
     c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
     c->conn.on_read = (c_cb_read_t) on_read;
     c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
@@ -46,8 +46,8 @@ static void on_conn_close(evsrv_conn* conn, int err) {
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    char* rbuf = conn->rbuf;
-    char* end = rbuf + conn->ruse;
+    int8_t* rbuf = conn->rbuf;
+    int8_t* end = rbuf + conn->ruse;
 
     size_t size = 10;
 

@@ -63,7 +63,7 @@ int evsrv_listen(evsrv* self) {
 
         struct sockaddr_un* serv_addr = (struct sockaddr_un*) &self->sockaddr.ss;
 
-        memset((char*) serv_addr, 0, sizeof(*serv_addr));
+        memset(serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sun_family = AF_UNIX;
         strncpy(serv_addr->sun_path, self->port, path_len);
         serv_addr->sun_path[path_len] = '\0';
@@ -73,7 +73,7 @@ int evsrv_listen(evsrv* self) {
     } else { // ipv4 socket
         struct sockaddr_in* serv_addr = (struct sockaddr_in*) &self->sockaddr.ss;
 
-        memset((char*) serv_addr, 0, sizeof(*serv_addr));
+        memset(serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sin_family = AF_INET;
         serv_addr->sin_addr.s_addr = inet_addr(self->host);
         serv_addr->sin_port = htons((uint16_t) atoi(self->port));
@@ -182,7 +182,7 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
             conn = (evsrv_conn*) malloc(sizeof(evsrv_conn));
             evsrv_conn_init(conn, self, conn_info);
             conn->on_read = self->on_read;
-            conn->rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
+            conn->rbuf = (int8_t*) malloc(EVSRV_DEFAULT_BUF_LEN * sizeof(int8_t));
             conn->rlen = EVSRV_DEFAULT_BUF_LEN;
         }
 

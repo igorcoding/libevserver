@@ -129,8 +129,9 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     }
 }
 
-void evsrv_conn_write(evsrv_conn* conn, const char* buf, size_t len) {
-    if ( len == 0 ) len = strlen(buf);
+void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len) {
+    if ( len == 0 ) len = strlen((const char*) buffer);
+    const int8_t* buf = (const int8_t*) buffer;
 
     if (conn->wuse) {
         //cwarn("have wbuf, use it");

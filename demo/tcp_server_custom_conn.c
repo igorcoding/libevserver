@@ -51,7 +51,7 @@ evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     tcpserver_conn* c = (tcpserver_conn*) malloc(sizeof(tcpserver_conn));  // allocating memory for our connection
     evsrv_conn_init(&c->conn, srv, info);                                  // initializing evsrv_conn
 
-    c->conn.rbuf = (char*) malloc(1024);                                   // allocating buffer with size 1024
+    c->conn.rbuf = (int8_t*) malloc(1024);                                 // allocating buffer with size 1024
     c->conn.rlen = 1024;                                                   // make sure that you save the buffer size in rlen
     c->conn.on_read = (c_cb_read_t) on_read;                               // setting on_read callback for this connection
 
