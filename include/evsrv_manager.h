@@ -8,6 +8,8 @@
 
 #include "evsrv.h"
 
+EV_CPP(extern "C" {)
+
 typedef struct _evsrv_manager evsrv_manager;
 typedef struct _evsrv_info evsrv_info;
 
@@ -51,5 +53,6 @@ void evsrv_manager_accept(evsrv_manager* self);
 void evsrv_manager_stop(evsrv_manager* self);
 void evsrv_manager_graceful_stop(evsrv_manager* self, c_cb_evsrv_manager_graceful_stop_t cb);
 
+EV_CPP(})
 
 #endif //LIBEVSERVER_EVSERVER_H

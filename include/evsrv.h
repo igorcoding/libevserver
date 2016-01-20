@@ -8,6 +8,8 @@
 #include "common.h"
 #include "evsrv_conn.h"
 
+EV_CPP(extern "C" {)
+
 typedef void        (* c_cb_started_t)(void*);
 typedef void        (* c_cb_srv_destroy_t)(evsrv*);
 
@@ -67,5 +69,7 @@ int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);
 void evsrv_stop(evsrv* self);
 void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb);
+
+EV_CPP(})
 
 #endif //LIBEVSERVER_EVSRV_H

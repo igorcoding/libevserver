@@ -131,7 +131,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
 
 void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len) {
     const char* buf = (const char*) buffer;
-    if ( len == 0 ) len = strlen((buf);
+    if ( len == 0 ) len = strlen(buf);
 
     if (conn->wuse) {
         //cwarn("have wbuf, use it");

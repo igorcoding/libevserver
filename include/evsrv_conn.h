@@ -7,6 +7,8 @@
 
 #include "common.h"
 
+EV_CPP(extern "C" {)
+
 typedef struct _evsrv_conn evsrv_conn;
 typedef struct _evsrv evsrv;
 
@@ -61,5 +63,7 @@ void evsrv_conn_shutdown(evsrv_conn* self, int how);
 void evsrv_conn_close(evsrv_conn* self, int err);
 
 void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len);
+
+EV_CPP(})
 
 #endif //LIBEVSERVER_EVSRV_CONN_H

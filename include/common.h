@@ -5,6 +5,16 @@
 #include <sys/un.h>
 #include <netinet/in.h>
 
+#ifndef EV_CPP
+#  ifdef __cplusplus
+#    define EV_CPP(x) x
+#  else
+#    define EV_CPP(x)
+#  endif
+#endif
+
+EV_CPP(extern "C" {)
+
 enum evsrv_proto {
     EVSRV_PROTO_TCP,
     // EVSRV_PROTO_UDP  // Not implemented
@@ -50,5 +60,7 @@ struct evsrv_sockaddr {
 } while (0)
 
 int evsrv_socket_set_nonblock(int fd);
+
+EV_CPP(})
 
 #endif //LIBEVSERVER_COMMON_H
