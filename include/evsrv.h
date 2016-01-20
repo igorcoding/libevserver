@@ -61,7 +61,7 @@ struct _evsrv {
 
 typedef struct _evsrv evsrv;
 
-void evsrv_init(evsrv* self, enum evsrv_proto proto, const char* host, const char* port);
+void evsrv_init(evsrv* self, const char* host, const char* port);
 void evsrv_clean(evsrv* self);
 int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);

@@ -9,7 +9,7 @@ void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents);
 
 int main() {
     evsrv srv;
-    evsrv_init(&srv, EVSRV_PROTO_TCP, "127.0.0.1", "9090");
+    evsrv_init(&srv, "127.0.0.1", "9090");
 
     ev_signal sig;
     ev_signal_init(&sig, sigint_cb, SIGINT);

@@ -38,7 +38,7 @@ struct _evsrv_conn {
     ev_io ww;
     ev_timer tww;
 
-    int8_t* rbuf;
+    char* rbuf;
     size_t ruse;
     size_t rlen;
 

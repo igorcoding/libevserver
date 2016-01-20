@@ -24,7 +24,7 @@ int main() {
     struct ev_loop* loop = EV_DEFAULT;
 
     evsrv srv;
-    evsrv_init(&srv, EVSRV_PROTO_TCP, "127.0.0.1", "9090");
+    evsrv_init(&srv, "127.0.0.1", "9090");
     srv.loop = loop;
 
     ev_signal sig;
@@ -54,7 +54,7 @@ evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     tcpserver_conn* c = (tcpserver_conn*) malloc(sizeof(tcpserver_conn));  // allocating memory for our connection
     evsrv_conn_init(&c->conn, srv, info);                                  // initializing evsrv_conn
 
-    c->conn.rbuf = (int8_t*) malloc(1024);                                 // allocating buffer with size 1024
+    c->conn.rbuf = (char*) malloc(1024);                                   // allocating buffer with size 1024
     c->conn.rlen = 1024;                                                   // make sure that you save the buffer size in rlen
     c->conn.on_read = (c_cb_read_t) on_read;                               // setting on_read callback for this connection
     c->conn.on_graceful_close = (c_cb_graceful_close_t) on_conn_graceful;  // setting on_graceful_close callback - it will be called when graceful shutdown requested

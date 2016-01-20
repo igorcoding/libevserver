@@ -29,7 +29,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
-    c->conn.rbuf = (int8_t*) malloc(EVSRV_DEFAULT_BUF_LEN);
+    c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
     c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
     c->conn.on_read = (c_cb_read_t) on_read;
     c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
@@ -45,8 +45,8 @@ static void on_conn_close(evsrv_conn* conn, int err) {
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    int8_t* rbuf = conn->rbuf;
-    int8_t* end = rbuf + conn->ruse;
+    char* rbuf = conn->rbuf;
+    char* end = rbuf + conn->ruse;
 
     size_t size = 10;
 
@@ -93,7 +93,7 @@ void on_started_my2(evsrv* srv) {
 static evsrv* on_my1_create(evsrv_manager* self, size_t id, evsrv_info* info) {
     cdebug("create my1");
     my1_srv* s = (my1_srv*) malloc(sizeof(my1_srv));
-    evsrv_init(&s->srv, info->proto, info->host, info->port);
+    evsrv_init(&s->srv, info->host, info->port);
     s->srv.backlog = 500;
     s->srv.write_timeout = 0.0;
     s->srv.on_started = (c_cb_started_t) on_started_my1;
@@ -113,7 +113,7 @@ static void on_my1_destroy(evsrv* self) {
 static evsrv* on_my2_create(evsrv_manager* self, size_t id, evsrv_info* info) {
     cdebug("create my2");
     my2_srv* s = (my2_srv*) malloc(sizeof(my1_srv));
-    evsrv_init(&s->srv, info->proto, info->host, info->port);
+    evsrv_init(&s->srv, info->host, info->port);
     s->srv.backlog = 500;
     s->srv.write_timeout = 0.0;
     s->srv.on_started = (c_cb_started_t) on_started_my2;
@@ -148,8 +148,8 @@ static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 int main() {
 
     evsrv_info hosts[] = {
-            { EVSRV_PROTO_TCP, "127.0.0.1", "9090", on_my1_create, on_my1_destroy },
-            { EVSRV_PROTO_TCP, "127.0.0.1", "7070", on_my2_create, on_my2_destroy },
+            { "127.0.0.1", "9090", on_my1_create, on_my1_destroy },
+            { "127.0.0.1", "7070", on_my2_create, on_my2_destroy },
     };
     size_t hosts_len = sizeof(hosts) / sizeof(hosts[0]);
 

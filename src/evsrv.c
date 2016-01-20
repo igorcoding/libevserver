@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <stdint.h>
 
 #include "util.h"
 
@@ -14,11 +15,11 @@ static void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents);
 #define evsrv_is_tcp(self) self->proto == EVSRV_PROTO_TCP
 #define evsrv_is_udp(self) self->proto == EVSRV_PROTO_UDP
 
-void evsrv_init(evsrv* self, enum evsrv_proto proto, const char* host, const char* port) {
+void evsrv_init(evsrv* self, const char* host, const char* port) {
     self->loop = EV_DEFAULT;
     self->manager = NULL;
     self->id = 0;
-    self->proto = proto;
+    self->proto = EVSRV_PROTO_TCP;
     self->host = host;
     self->port = port;
     self->state = EVSRV_IDLE;
@@ -63,7 +64,7 @@ int evsrv_listen(evsrv* self) {
 
         struct sockaddr_un* serv_addr = (struct sockaddr_un*) &self->sockaddr.ss;
 
-        memset(serv_addr, 0, sizeof(*serv_addr));
+        memset((char*) serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sun_family = AF_UNIX;
         strncpy(serv_addr->sun_path, self->port, path_len);
         serv_addr->sun_path[path_len] = '\0';
@@ -73,7 +74,7 @@ int evsrv_listen(evsrv* self) {
     } else { // ipv4 socket
         struct sockaddr_in* serv_addr = (struct sockaddr_in*) &self->sockaddr.ss;
 
-        memset(serv_addr, 0, sizeof(*serv_addr));
+        memset((char*) serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sin_family = AF_INET;
         serv_addr->sin_addr.s_addr = inet_addr(self->host);
         serv_addr->sin_port = htons((uint16_t) atoi(self->port));
@@ -182,7 +183,7 @@ void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents) {
             conn = (evsrv_conn*) malloc(sizeof(evsrv_conn));
             evsrv_conn_init(conn, self, conn_info);
             conn->on_read = self->on_read;
-            conn->rbuf = (int8_t*) malloc(EVSRV_DEFAULT_BUF_LEN * sizeof(int8_t));
+            conn->rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN * sizeof(char));
             conn->rlen = EVSRV_DEFAULT_BUF_LEN;
         }
 

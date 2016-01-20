@@ -15,7 +15,7 @@ typedef evsrv* (* c_cb_srv_create_t)(evsrv_manager*, size_t, evsrv_info*);
 typedef void   (* c_cb_evsrv_manager_graceful_stop_t)(evsrv_manager*);
 
 struct _evsrv_info {
-    enum evsrv_proto proto;
+    // enum evsrv_proto proto;
     char* host;
     char* port;
 

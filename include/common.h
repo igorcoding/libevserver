@@ -7,7 +7,7 @@
 
 enum evsrv_proto {
     EVSRV_PROTO_TCP,
-    EVSRV_PROTO_UDP
+    // EVSRV_PROTO_UDP  // Not implemented
 };
 
 struct evsrv_sockaddr {

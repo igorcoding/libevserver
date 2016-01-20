@@ -25,7 +25,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
-    c->conn.rbuf = (int8_t*) malloc(EVSRV_DEFAULT_BUF_LEN);
+    c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
     c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
     c->conn.on_read = (c_cb_read_t) on_read;
     c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
@@ -46,8 +46,8 @@ static void on_conn_close(evsrv_conn* conn, int err) {
 }
 
 void on_read(evsrv_conn* conn, ssize_t nread) {
-    int8_t* rbuf = conn->rbuf;
-    int8_t* end = rbuf + conn->ruse;
+    char* rbuf = conn->rbuf;
+    char* end = rbuf + conn->ruse;
 
     size_t size = 10;
 
@@ -107,7 +107,7 @@ static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
 int main() {
     struct ev_loop* loop = EV_DEFAULT;
     evsrv srv;
-    evsrv_init(&srv, EVSRV_PROTO_TCP, "127.0.0.1", "9090");
+    evsrv_init(&srv, "127.0.0.1", "9090");
 //    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
     srv.loop = loop;
 

@@ -28,8 +28,8 @@ void sigint_cb(struct ev_loop* loop, ev_signal* w, int revents);
 int main() {
 
     evsrv_info hosts[] = {                                                    // specify all the servers
-            { EVSRV_PROTO_TCP, "127.0.0.1", "9090", on_server1_create, on_server1_destroy },
-            { EVSRV_PROTO_TCP, "127.0.0.1", "7070", on_server2_create, on_server2_destroy },
+            { "127.0.0.1", "9090", on_server1_create, on_server1_destroy },
+            { "127.0.0.1", "7070", on_server2_create, on_server2_destroy },
     };
     size_t hosts_len = sizeof(hosts) / sizeof(hosts[0]);
 
@@ -58,7 +58,7 @@ void on_started(evsrv_manager* srv) {
 
 evsrv* on_server1_create(evsrv_manager* self, size_t id, evsrv_info* info) {
     server1* s = (server1*) malloc(sizeof(server1));                          // allocating memory for the server
-    evsrv_init(&s->srv, info->proto, info->host, info->port);                 // initializing it with desired options
+    evsrv_init(&s->srv, info->host, info->port);                              // initializing it with desired options
     s->srv.backlog = SOMAXCONN;
     s->srv.write_timeout = 0.0;
     s->srv.on_read = (c_cb_read_t) on_server1_read;
@@ -83,7 +83,7 @@ void on_server1_read(evsrv_conn* conn, ssize_t nread) {
 
 evsrv* on_server2_create(evsrv_manager* self, size_t id, evsrv_info* info) {
     server2* s = (server2*) malloc(sizeof(server2));                          // allocating memory for the server
-    evsrv_init(&s->srv, info->proto, info->host, info->port);                 // initializing it with desired options
+    evsrv_init(&s->srv, info->host, info->port);                              // initializing it with desired options
     s->srv.backlog = SOMAXCONN;
     s->srv.write_timeout = 0.0;
     s->srv.on_read = (c_cb_read_t) on_server2_read;
