@@ -15,8 +15,8 @@ static void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents);
 #define evsrv_is_tcp(self) self->proto == EVSRV_PROTO_TCP
 #define evsrv_is_udp(self) self->proto == EVSRV_PROTO_UDP
 
-void evsrv_init(evsrv* self, const char* host, const char* port) {
-    self->loop = EV_DEFAULT;
+void evsrv_init(struct ev_loop* loop, evsrv* self, const char* host, const char* port) {
+    self->loop = loop;
     self->manager = NULL;
     self->id = 0;
     self->proto = EVSRV_PROTO_TCP;
@@ -32,7 +32,7 @@ void evsrv_init(evsrv* self, const char* host, const char* port) {
     self->on_started = NULL;
     self->on_conn_create = NULL;
     self->on_conn_ready = NULL;
-    self->on_conn_close = NULL;
+    self->on_conn_destroy = NULL;
     self->on_read = NULL;
     self->on_graceful_stop = NULL;
 
@@ -52,8 +52,7 @@ void evsrv_clean(evsrv* self) {
     self->manager = NULL;
 }
 
-int evsrv_listen(evsrv* self) {
-
+int evsrv_bind(evsrv* self) {
     if (strncasecmp(self->host, "unix/", 5) == 0) { // unix domain socket
         size_t path_len = strlen(self->port);
         if (path_len > 107) {
@@ -123,6 +122,11 @@ int evsrv_listen(evsrv* self) {
         return -1;
     }
 
+    self->state = EVSRV_BOUND;
+    return 0;
+}
+
+int evsrv_listen(evsrv* self) {
     if (evsrv_is_tcp(self)) {
         if (listen(self->sock, self->backlog) < 0) {
             cerror("Listen error");
@@ -217,7 +221,7 @@ void evsrv_stop(evsrv* self) {
     self->state = EVSRV_STOPPED;
 }
 
-void evsrv_graceful_stop(evsrv* self, c_cb_evsrv_graceful_stop_t cb) {
+void evsrv_graceful_stop(evsrv* self, evsrv_on_graceful_stop_cb cb) {
     cdebug("graceful stop started");
     evsrv_stop_io(self->loop, &self->accept_rw);
 

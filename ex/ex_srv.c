@@ -25,10 +25,9 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
-    c->conn.rbuf = (char*) malloc(EVSRV_DEFAULT_BUF_LEN);
-    c->conn.rlen = EVSRV_DEFAULT_BUF_LEN;
-    c->conn.on_read = (c_cb_read_t) on_read;
-    c->conn.on_graceful_close = (c_cb_graceful_close_t) on_graceful_conn_close;
+    evsrv_conn_set_rbuf(&c->conn, (char*) malloc(EVSRV_DEFAULT_BUF_LEN), EVSRV_DEFAULT_BUF_LEN);
+    evsrv_conn_set_on_read(&c->conn, on_read);
+    evsrv_conn_set_on_graceful_close(&c->conn, on_graceful_conn_close);
 
     c->tw.data = (void*) c;
     ev_timer_init(&c->tw, on_graceful_conn_timeout, 1, 0);
@@ -36,9 +35,9 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     return (evsrv_conn*) c;
 }
 
-static void on_conn_close(evsrv_conn* conn, int err) {
+static void on_conn_destroy(evsrv_conn* conn, int err) {
     my1_conn* c = (my1_conn*) conn;
-    cwarn("[%d] user: on_conn_close", c->conn.info->sock);
+    cwarn("[%d] user: on_conn_destroy", c->conn.info->sock);
     evsrv_conn_clean(&c->conn);
     free(c->conn.rbuf);
     c->conn.rbuf = NULL;
@@ -90,59 +89,61 @@ void on_started(evsrv* srv) {
 
 static void on_gracefully_stopped(evsrv* srv) {
     cwarn("Gracefully stopped %s:%s", srv->host, srv->port);
-    evsrv_clean(srv);
     ev_break(srv->loop, EVUNLOOP_ALL);
-    ev_loop_destroy(srv->loop);
 }
 
 static void signal_cb(struct ev_loop* loop, ev_signal* w, int revents) {
     ev_signal_stop(loop, w);
     evsrv* srv = (evsrv*) w->data;
-//    evsrv_stop(srv);
-//    evsrv_clean(srv);
     evsrv_graceful_stop(srv, on_gracefully_stopped);
-//    ev_loop_destroy(srv->loop);
 }
 
 int main() {
     struct ev_loop* loop = EV_DEFAULT;
     evsrv srv;
-    evsrv_init(&srv, "127.0.0.1", "9090");
-//    evsrv_init(&srv, 1, "unix/", "/var/tmp/ev_srv.sock");
-    srv.loop = loop;
+    evsrv_init(loop, &srv, "127.0.0.1", "9090");
+    // evsrv_init(loop, &srv, "unix/", "/var/tmp/ev_srv.sock");
+
+    srv.write_timeout = 0.0;
+
+    evsrv_set_on_started(&srv, on_started);
+    evsrv_set_on_conn(&srv, on_conn_create, on_conn_destroy);
+    evsrv_set_on_read(&srv, on_read);
+
+    if (evsrv_bind(&srv) == -1) {
+        return EXIT_FAILURE;
+    }
+    if (evsrv_listen(&srv) == -1) {
+        return EXIT_FAILURE;
+    }
 
     ev_signal sig;
     ev_signal_init(&sig, signal_cb, SIGINT);
     sig.data = (void*) &srv;
+    ev_signal_start(srv.loop, &sig);
 
-    srv.write_timeout = 0.0;
-    srv.on_started = (c_cb_started_t) on_started;
-    srv.on_conn_create = (c_cb_conn_create_t) on_conn_create;
-    srv.on_conn_close = (c_cb_conn_close_t) on_conn_close;
-    srv.on_read = (c_cb_read_t) on_read;
-
-    if (evsrv_listen(&srv) != -1) {
-        ev_signal_start(srv.loop, &sig);
-        evsrv_accept(&srv);
-        ev_run(loop, 0);
-//        int max_childs = 4;
-//        for (int i = 0; i < max_childs; ++i) {
-//            pid_t pid = fork();
-//            if (pid > 0) {
-//                // master
+    evsrv_accept(&srv);
+    ev_run(loop, 0);
+//    int max_childs = 4;
+//    for (int i = 0; i < max_childs; ++i) {
+//        pid_t pid = fork();
+//        if (pid > 0) {
+//            // master
 //
-//            } else if (pid == 0) {
-//                // child
-//                ev_loop_fork(self->loop);
-//                evsrv_accept(&srv);
-//                evsrv_run(&srv);
-//                break;
-//            } else {
-//                // error
-//                perror("fork failed");
-//                break;
-//            }
+//        } else if (pid == 0) {
+//            // child
+//            ev_loop_fork(srv.loop);
+//            evsrv_accept(&srv);
+//            ev_run(loop, 0);
+//            break;
+//        } else {
+//            // error
+//            perror("fork failed");
+//            break;
 //        }
-    }
+//    }
+
+    evsrv_clean(&srv);
+    ev_loop_destroy(srv.loop);
 
 }

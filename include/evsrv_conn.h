@@ -12,8 +12,8 @@ EV_CPP(extern "C" {)
 typedef struct _evsrv_conn evsrv_conn;
 typedef struct _evsrv evsrv;
 
-typedef void (* c_cb_read_t)(evsrv_conn*, ssize_t);
-typedef bool (* c_cb_graceful_close_t)(evsrv_conn*);
+typedef void (* evsrv_on_read_cb)(evsrv_conn*, ssize_t);
+typedef bool (* evsrv_conn_on_graceful_close_cb)(evsrv_conn*);
 
 struct evsrv_conn_info {
     struct evsrv_sockaddr addr;
@@ -49,8 +49,8 @@ struct _evsrv_conn {
     size_t wlen;
     bool wnow;
 
-    c_cb_read_t on_read;
-    c_cb_graceful_close_t on_graceful_close;
+    evsrv_on_read_cb on_read;
+    evsrv_conn_on_graceful_close_cb on_graceful_close;
 
     void* data;
 };
@@ -63,6 +63,22 @@ void evsrv_conn_shutdown(evsrv_conn* self, int how);
 void evsrv_conn_close(evsrv_conn* self, int err);
 
 void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len);
+
+
+#define evsrv_conn_set_rbuf(conn, buf, len) do { \
+    (conn)->rbuf = (buf); \
+    (conn)->rlen = (len); \
+} while (0)
+
+
+#define evsrv_conn_set_on_read(conn, on_read_cb) do { \
+    (conn)->on_read = (evsrv_on_read_cb) (on_read_cb); \
+} while (0)
+
+
+#define evsrv_conn_set_on_graceful_close(conn, on_graceful_close_cb) do { \
+    (conn)->on_graceful_close = (evsrv_conn_on_graceful_close_cb) (on_graceful_close_cb); \
+} while (0)
 
 EV_CPP(})
 

@@ -9,17 +9,16 @@
 static void _evsrv_manager_graceful_stop_cb(evsrv* stopped_srv);
 
 
-/*************************** evserver ***************************/
+/*************************** evsrv_manager ***************************/
 
-void evsrv_manager_init(evsrv_manager* self, evsrv_info* servers, size_t servers_count) {
-    self->loop = EV_DEFAULT;
+void evsrv_manager_init(struct ev_loop* loop, evsrv_manager* self, evsrv_info* servers, size_t servers_count) {
+    self->loop = loop;
     self->srvs_len = servers_count;
     self->srvs = (evsrv**) calloc(self->srvs_len, sizeof(evsrv*));
     for (size_t i = 0; i < self->srvs_len; ++i) {
         size_t id = i + 1;
         self->srvs[i] = servers[i].on_create(self, id, &servers[i]);
         self->srvs[i]->id = id;
-        self->srvs[i]->loop = self->loop;
         self->srvs[i]->manager = self;
         self->srvs[i]->on_destroy = servers[i].on_destroy;
     }
@@ -41,11 +40,23 @@ void evsrv_manager_clean(evsrv_manager* self) {
     self->active_srvs = 0;
 }
 
+void evsrv_manager_bind(evsrv_manager* self) {
+    for (size_t i = 0; i < self->srvs_len; ++i) {
+        evsrv* srv = self->srvs[i];
+        if (evsrv_bind(srv) == -1) {
+            cerror("Bind of server [#%lu] %s:%s failed", srv->id, srv->host, srv->port);
+        }
+    }
+    self->state = EVSRV_MANAGER_BOUND;
+}
+
 void evsrv_manager_listen(evsrv_manager* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         evsrv* srv = self->srvs[i];
-        if (evsrv_listen(srv) == -1) {
-            cerror("Listen of server [#%lu] %s:%s failed", srv->id, srv->host, srv->port);
+        if (srv->state == EVSRV_BOUND) {
+            if (evsrv_listen(srv) == -1) {
+                cerror("Listen of server [#%lu] %s:%s failed", srv->id, srv->host, srv->port);
+            }
         }
     }
     self->state = EVSRV_MANAGER_LISTENING;
@@ -77,7 +88,7 @@ void evsrv_manager_stop(evsrv_manager* self) {
     }
 }
 
-void evsrv_manager_graceful_stop(evsrv_manager* self, c_cb_evsrv_manager_graceful_stop_t cb) {
+void evsrv_manager_graceful_stop(evsrv_manager* self, evsrv_manager_on_graceful_stop_cb cb) {
     cdebug("evserver graceful stop started");
     self->state = EVSRV_MANAGER_GRACEFULLY_STOPPING;
     self->on_graceful_stop = cb;

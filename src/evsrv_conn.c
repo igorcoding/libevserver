@@ -103,8 +103,8 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     cdebug("[%d] <evsrv_conn_close>", sock);
     self->state = EVSRV_CONN_CLOSING;
     evsrv_conn_stop(self);
-    if (self->srv->on_conn_close) {
-        self->srv->on_conn_close(self, err);
+    if (self->srv->on_conn_destroy) {
+        self->srv->on_conn_destroy(self, err);
     } else {
         if (!srv->on_conn_create) { // Then we created conn by ourselves, need to cleanup
             evsrv_conn_clean(self);
@@ -131,7 +131,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
 
 void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len) {
     const char* buf = (const char*) buffer;
-    if ( len == 0 ) len = strlen(buf);
+    if (len == 0) len = strlen(buf);
 
     if (conn->wuse) {
         //cwarn("have wbuf, use it");
