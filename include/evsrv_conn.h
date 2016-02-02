@@ -68,6 +68,7 @@ void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len);
 #define evsrv_conn_set_rbuf(conn, buf, len) do { \
     (conn)->rbuf = (buf); \
     (conn)->rlen = (len); \
+    (conn)->ruse = 0; \
 } while (0)
 
 

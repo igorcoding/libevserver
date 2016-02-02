@@ -41,9 +41,10 @@ struct _evsrv {
 
     int sock;
     int backlog;
-    double read_timeout;
 
+    double read_timeout;
     double write_timeout;
+
     ev_io accept_rw;
 
     evsrv_on_destroy_cb on_destroy;

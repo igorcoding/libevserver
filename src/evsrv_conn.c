@@ -268,7 +268,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
 
     again: {
 
-        int iovs_to_write = self->wuse >= IOV_MAX ? IOV_MAX : self->wuse;
+        size_t iovs_to_write = self->wuse >= IOV_MAX ? IOV_MAX : self->wuse;
 
         // cwarn("wr = %d from iov = %p", iovs_to_write, head_ptr);
 
@@ -284,7 +284,7 @@ void _evsrv_conn_write_cb(struct ev_loop* loop, ev_io* w, int revents) {
         // 	wr = writev(w->fd, head_ptr, iovs_to_write);
         // }
 
-        wr = writev(w->fd, head_ptr, iovs_to_write);
+        wr = writev(w->fd, head_ptr, (int) iovs_to_write);
         if (wr > -1) {
             for (iovcur = 0; iovcur < iovs_to_write; iovcur++) {
                 iov = &(head_ptr[iovcur]);
