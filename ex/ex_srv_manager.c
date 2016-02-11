@@ -37,7 +37,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
 
 static void on_conn_destroy(evsrv_conn* conn, int err) {
     my1_conn* c = (my1_conn*) conn;
-    evsrv_conn_clean(&c->conn);
+    evsrv_conn_destroy(&c->conn);
     free(c->conn.rbuf);
     c->conn.rbuf = NULL;
     free(c);
@@ -103,7 +103,7 @@ static evsrv* on_my1_create(evsrv_manager* self, size_t id, evsrv_info* info) {
 static void on_my1_destroy(evsrv* self) {
     cdebug("destroy my1");
     my1_srv* s = (my1_srv*) self;
-    evsrv_clean(&s->srv);
+    evsrv_destroy(&s->srv);
     free(s);
 }
 
@@ -122,7 +122,7 @@ static evsrv* on_my2_create(evsrv_manager* self, size_t id, evsrv_info* info) {
 static void on_my2_destroy(evsrv* self) {
     cdebug("destroy my2");
     my2_srv* s = (my2_srv*) self;
-    evsrv_clean(&s->srv);
+    evsrv_destroy(&s->srv);
     free(s);
 }
 
@@ -184,7 +184,7 @@ int main() {
 //        }
 //    }
 
-    evsrv_manager_clean(&mgr);
+    evsrv_manager_destroy(&mgr);
     ev_loop_destroy(loop);
 
 }

@@ -44,7 +44,7 @@ void evsrv_init(struct ev_loop* loop, evsrv* self, const char* host, const char*
 }
 
 
-void evsrv_clean(evsrv* self) {
+void evsrv_destroy(evsrv* self) {
     if (self->state != EVSRV_STOPPED) {
         evsrv_stop(self);
     }

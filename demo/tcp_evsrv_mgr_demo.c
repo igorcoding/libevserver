@@ -47,7 +47,7 @@ int main() {
     evsrv_manager_accept(&mgr);                                                // beginning to accept connections in every server
     ev_run(mgr.loop, 0);
 
-    evsrv_manager_clean(&mgr);                                                 // cleaning evsrv_manager
+    evsrv_manager_destroy(&mgr);                                                 // cleaning evsrv_manager
     ev_loop_destroy(mgr.loop);
 }
 
@@ -71,7 +71,7 @@ evsrv* on_server1_create(evsrv_manager* self, size_t id, evsrv_info* info) {
 
 void on_server1_destroy(evsrv* self) {
     server1* s = (server1*) self;
-    evsrv_clean(&s->srv);                                                      // cleaning srv
+    evsrv_destroy(&s->srv);                                                      // cleaning srv
     free(s);                                                                   // freeing allocated memory
 }
 
@@ -96,7 +96,7 @@ evsrv* on_server2_create(evsrv_manager* self, size_t id, evsrv_info* info) {
 
 void on_server2_destroy(evsrv* self) {
     server2* s = (server2*) self;
-    evsrv_clean(&s->srv);                                                      // cleaning srv
+    evsrv_destroy(&s->srv);                                                      // cleaning srv
     free(s);                                                                   // freeing allocated memory
 }
 

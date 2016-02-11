@@ -67,7 +67,7 @@ namespace ev {
         }
 
         void clean() {
-            evsrv_conn_clean(this);
+            evsrv_conn_destroy(this);
         }
 
         void shutdown(int how = EVSRV_SHUT_RDWR) {

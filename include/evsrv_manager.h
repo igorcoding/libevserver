@@ -49,7 +49,7 @@ struct _evsrv_manager {
 };
 
 void evsrv_manager_init(struct ev_loop* loop, evsrv_manager* self, evsrv_info* servers, size_t servers_count);
-void evsrv_manager_clean(evsrv_manager* self);
+void evsrv_manager_destroy(evsrv_manager* self);
 void evsrv_manager_bind(evsrv_manager* self);
 void evsrv_manager_listen(evsrv_manager* self);
 void evsrv_manager_accept(evsrv_manager* self);

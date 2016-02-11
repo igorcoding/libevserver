@@ -29,7 +29,7 @@ int main() {
     evsrv_accept(&srv);                                                        // beginning to accept connections
     ev_run(srv.loop, 0);
 
-    evsrv_clean(&srv);                                                         // cleaning evsrv
+    evsrv_destroy(&srv);                                                         // cleaning evsrv
     ev_loop_destroy(srv.loop);
 }
 

@@ -38,7 +38,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
 static void on_conn_destroy(evsrv_conn* conn, int err) {
     my1_conn* c = (my1_conn*) conn;
     cwarn("[%d] user: on_conn_destroy", c->conn.info->sock);
-    evsrv_conn_clean(&c->conn);
+    evsrv_conn_destroy(&c->conn);
     free(c->conn.rbuf);
     c->conn.rbuf = NULL;
     free(c);
@@ -143,7 +143,7 @@ int main() {
 //        }
 //    }
 
-    evsrv_clean(&srv);
+    evsrv_destroy(&srv);
     ev_loop_destroy(srv.loop);
 
 }

@@ -58,7 +58,7 @@ struct _evsrv_conn {
 void evsrv_conn_init(evsrv_conn* self, evsrv* srv, struct evsrv_conn_info* info);
 void evsrv_conn_start(evsrv_conn* self);
 void evsrv_conn_stop(evsrv_conn* self);
-void evsrv_conn_clean(evsrv_conn* self);
+void evsrv_conn_destroy(evsrv_conn* self);
 void evsrv_conn_shutdown(evsrv_conn* self, int how);
 void evsrv_conn_close(evsrv_conn* self, int err);
 

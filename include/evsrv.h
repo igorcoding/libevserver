@@ -66,7 +66,7 @@ struct _evsrv {
 typedef struct _evsrv evsrv;
 
 void evsrv_init(struct ev_loop* loop, evsrv* self, const char* host, const char* port);
-void evsrv_clean(evsrv* self);
+void evsrv_destroy(evsrv* self);
 int evsrv_bind(evsrv* self);
 int evsrv_listen(evsrv* self);
 int evsrv_accept(evsrv* self);

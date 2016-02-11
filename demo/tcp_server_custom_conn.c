@@ -39,7 +39,7 @@ int main() {
 
     evsrv_accept(&srv);                                                    // beginning to accept connections
     ev_run(loop, 0);
-    evsrv_clean(&srv);                                                     // cleaning evsrv
+    evsrv_destroy(&srv);                                                     // cleaning evsrv
     ev_loop_destroy(srv.loop);
     return EXIT_SUCCESS;
 }
@@ -62,7 +62,7 @@ evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
 
 void on_conn_destroy(evsrv_conn* conn, int err) {
     tcpserver_conn* c = (tcpserver_conn*) conn;                            // casting evsrv_conn* to our connection type
-    evsrv_conn_clean(&c->conn);                                            // cleaning evsrv_conn
+    evsrv_conn_destroy(&c->conn);                                            // cleaning evsrv_conn
 
     free(c->conn.rbuf);                                                    // cleaning previously allocated buffer
     c->conn.rbuf = NULL;

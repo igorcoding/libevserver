@@ -28,7 +28,7 @@ int main() {
     ev::loop_ref loop = ev::get_default_loop();
 
     ev::sig sig(loop);
-    sig.set<&sigint_cb>();
+    sig.set<sigint_cb>();
     sig.set(SIGINT);
     sig.start();
 

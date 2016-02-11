@@ -19,7 +19,7 @@ namespace ev {
         }
 
         ~srv() {
-            evsrv_clean(this);
+            evsrv_destroy(this);
         }
 
         srv_manager* manager() { return static_cast<srv_manager*>(evsrv::manager); }

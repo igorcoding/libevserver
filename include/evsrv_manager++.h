@@ -16,7 +16,7 @@ namespace ev {
         }
 
         ~srv_manager() {
-            evsrv_manager_clean(static_cast<evsrv_manager*>(this));
+            evsrv_manager_destroy(static_cast<evsrv_manager*>(this));
         }
 
         template <class K, void (K::*method)(srv_manager& s)>

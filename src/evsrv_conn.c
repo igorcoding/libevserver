@@ -63,8 +63,8 @@ void evsrv_conn_stop(evsrv_conn* self) {
     self->state = EVSRV_CONN_STOPPED;
 }
 
-void evsrv_conn_clean(evsrv_conn* self) {
-    cdebug("[%d] evsrv_conn_clean", self->info->sock);
+void evsrv_conn_destroy(evsrv_conn* self) {
+    cdebug("[%d] evsrv_conn_destroy", self->info->sock);
     if (self->info->sock > -1) {
         close(self->info->sock);
         self->info->sock = -1;
@@ -107,7 +107,7 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
         self->srv->on_conn_destroy(self, err);
     } else {
         if (!srv->on_conn_create) { // Then we created conn by ourselves, need to cleanup
-            evsrv_conn_clean(self);
+            evsrv_conn_destroy(self);
             free(self->rbuf);
             self->rbuf = NULL;
             free(self);

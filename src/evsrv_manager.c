@@ -29,7 +29,7 @@ void evsrv_manager_init(struct ev_loop* loop, evsrv_manager* self, evsrv_info* s
     self->state = EVSRV_MANAGER_IDLE;
 }
 
-void evsrv_manager_clean(evsrv_manager* self) {
+void evsrv_manager_destroy(evsrv_manager* self) {
     for (size_t i = 0; i < self->srvs_len; ++i) {
         self->srvs[i]->on_destroy(self->srvs[i]); // freeing
         self->srvs[i] = NULL;
