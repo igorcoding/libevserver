@@ -7,5 +7,5 @@ foreach( f ${APP_SOURCES} )
     target_link_libraries( ${app} evserver )
 endforeach( f ${APP_SOURCES} )
 
-add_executable(ev_cpp ex_cpp.cpp)
-target_link_libraries( ev_cpp evserver )
+add_executable(ex_cpp ex_cpp.cpp)
+target_link_libraries( ex_cpp evserver )

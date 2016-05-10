@@ -28,5 +28,10 @@ set(SOURCE_FILES
 add_library(evserver ${SOURCE_FILES} ${HEADER_FILES})
 target_link_libraries(evserver ev)
 
-add_subdirectory(demo/)
-add_subdirectory(ex/)
+if ($ENV{BUILD_DEMO})
+    add_subdirectory(demo/)
+endif($ENV{BUILD_DEMO})
+
+if ($ENV{BUILD_EXAMPLE})
+    add_subdirectory(ex/)
+endif($ENV{BUILD_EXAMPLE})
