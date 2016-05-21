@@ -35,8 +35,8 @@ struct _evsrv {
     enum evsrv_state state;
 
     enum evsrv_proto proto;
-    const char* host;
-    const char* port;
+    char* host;
+    char* port;
     struct evsrv_sockaddr sockaddr;
 
     int sock;

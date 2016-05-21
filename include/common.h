@@ -47,6 +47,12 @@ struct evsrv_sockaddr {
 #  define EVSRV_SHUT_RDWR SHUT_RDWR
 #endif
 
+#define evsrv_start_timer(loop, ev) do { \
+    if (!ev_is_active(ev)) { \
+        ev_timer_start(loop, ev); \
+    } \
+} while (0)
+
 #define evsrv_stop_timer(loop, ev) do { \
     if (ev_is_active(ev)) { \
         ev_timer_stop(loop, ev); \

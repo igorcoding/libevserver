@@ -64,7 +64,7 @@ ev::srv_conn* on_conn_create(ev::srv& srv, evsrv_conn_info* info) {
     char* buf = new char[1024];
     c->set_rbuf(buf, 1024);
     c->set_on_read<on_read>();
-
+    c->set_write_now(false);
     return c;
 }
 

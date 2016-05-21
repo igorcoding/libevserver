@@ -25,6 +25,7 @@ static evsrv_conn* on_conn_create(evsrv* srv, struct evsrv_conn_info* info) {
     my1_conn* c = (my1_conn*) malloc(sizeof(my1_conn));
     evsrv_conn_init(&c->conn, srv, info);
 
+    c->conn.wnow = 0;
     evsrv_conn_set_rbuf(&c->conn, (char*) malloc(EVSRV_DEFAULT_BUF_LEN), EVSRV_DEFAULT_BUF_LEN);
     evsrv_conn_set_on_read(&c->conn, on_read);
     evsrv_conn_set_on_graceful_close(&c->conn, on_graceful_conn_close);
@@ -111,10 +112,10 @@ int main() {
     evsrv_set_on_read(&srv, on_read);
 
     if (evsrv_bind(&srv) == -1) {
-        return EXIT_FAILURE;
+        goto error;
     }
     if (evsrv_listen(&srv) == -1) {
-        return EXIT_FAILURE;
+        goto error;
     }
 
     ev_signal sig;
@@ -142,8 +143,11 @@ int main() {
 //            break;
 //        }
 //    }
-
     evsrv_destroy(&srv);
     ev_loop_destroy(srv.loop);
-
+    return EXIT_SUCCESS;
+error:
+    evsrv_destroy(&srv);
+    ev_loop_destroy(srv.loop);
+    return EXIT_FAILURE;
 }

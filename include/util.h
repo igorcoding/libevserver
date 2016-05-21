@@ -15,12 +15,12 @@
 #endif
 
 #ifndef cdebug
-#define cdebug(fmt, ...) do{ \
+/*#define cdebug(fmt, ...) do{ \
         fprintf(stderr, "[DEBU] %0.6f %s:%d: ", ev_now(EV_DEFAULT), __FILE__, __LINE__); \
         fprintf(stderr, fmt, ##__VA_ARGS__); \
         if (fmt[strlen(fmt) - 1] != 0x0a) { fprintf(stderr, "\n"); } \
-    } while(0)
-/*#define cdebug(fmt, ...) do{} while(0)*/
+    } while(0)*/
+#define cdebug(fmt, ...) do{} while(0)
 #endif
 
 #ifndef cerror

@@ -14,11 +14,11 @@ namespace ev {
     class srv_conn;
     class srv : public evsrv {
     public:
-        srv(ev::loop_ref& loop, const char* host, const char* port) {
+        srv(ev::loop_ref loop, const char* host, const char* port) {
             evsrv_init(loop.raw_loop, this, host, port);
         }
 
-        ~srv() {
+        virtual ~srv() {
             evsrv_destroy(this);
         }
 
@@ -92,10 +92,10 @@ namespace ev {
 
 
 
-        int bind() { return evsrv_bind(static_cast<evsrv*>(this)); }
-        int listen() { return evsrv_listen(static_cast<evsrv*>(this)); }
-        int accept() { return evsrv_accept(static_cast<evsrv*>(this)); }
-        void start() {
+        virtual int bind() { return evsrv_bind(static_cast<evsrv*>(this)); }
+        virtual int listen() { return evsrv_listen(static_cast<evsrv*>(this)); }
+        virtual int accept() { return evsrv_accept(static_cast<evsrv*>(this)); }
+        virtual void start() {
             if (bind() < 0) {
                 // TODO
                 return;
@@ -109,7 +109,7 @@ namespace ev {
                 return;
             }
         }
-        void stop()  { evsrv_stop(static_cast<evsrv*>(this)); }
+        virtual void stop()  { evsrv_stop(static_cast<evsrv*>(this)); }
 
         template <class K, void (K::*method)(srv&)>
         void graceful_stop(K* object) {
@@ -210,7 +210,6 @@ namespace ev {
         static void _on_graceful_stop_function_thunk(evsrv* s) {
             function(*static_cast<srv*>(s));
         }
-
 
     };
 }

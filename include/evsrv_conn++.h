@@ -15,7 +15,7 @@ namespace ev {
             evsrv_conn_init(this, static_cast<evsrv*>(&s), info);
         }
 
-        ~srv_conn() {
+        virtual ~srv_conn() {
             clean();
         }
 
@@ -32,7 +32,7 @@ namespace ev {
         size_t wlen() const { return evsrv_conn::wlen; }
         bool write_now() const { return evsrv_conn::wnow; }
 
-        void set_rbuf(char* buf, size_t len) {
+        virtual void set_rbuf(char* buf, size_t len) {
             evsrv_conn_set_rbuf(static_cast<evsrv_conn*>(this), buf, len);
         }
         void set_write_now(bool write_now) { evsrv_conn::wnow = write_now; }
@@ -58,28 +58,36 @@ namespace ev {
         }
 
 
-        void start() {
+        virtual void start() {
             evsrv_conn_start(this);
         }
 
-        void stop() {
+        virtual void stop() {
             evsrv_conn_stop(this);
         }
 
-        void clean() {
+        virtual void clean() {
             evsrv_conn_destroy(this);
         }
 
-        void shutdown(int how = EVSRV_SHUT_RDWR) {
+        virtual void shutdown(int how = EVSRV_SHUT_RDWR) {
             evsrv_conn_shutdown(this, how);
         }
 
-        void close(int err = 0) {
+        virtual void close(int err = 0) {
             evsrv_conn_close(this, err);
         }
 
-        void write(const void* buffer, size_t len = 0) {
+        virtual void write(const void* buffer, size_t len = 0) {
             evsrv_conn_write(this, buffer, len);
+        }
+
+        void read_timer_stop() {
+            evsrv_conn_read_timer_stop(this);
+        }
+
+        void read_timer_again() {
+            evsrv_conn_read_timer_again(this);
         }
 
     private:

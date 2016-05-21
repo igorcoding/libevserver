@@ -11,11 +11,11 @@
 namespace ev {
     class srv_manager : public evsrv_manager {
     public:
-        srv_manager(ev::loop_ref& loop, evsrv_info* servers, size_t servers_count) {
+        srv_manager(ev::loop_ref loop, evsrv_info* servers, size_t servers_count) {
             evsrv_manager_init(loop.raw_loop, static_cast<evsrv_manager*>(this), servers, servers_count);
         }
 
-        ~srv_manager() {
+        virtual ~srv_manager() {
             evsrv_manager_destroy(static_cast<evsrv_manager*>(this));
         }
 
@@ -29,15 +29,15 @@ namespace ev {
             _set_on_started(data, _on_started_function_thunk < function > );
         }
 
-        void bind() { evsrv_manager_bind(static_cast<evsrv_manager*>(this)); }
-        void listen() { evsrv_manager_listen(static_cast<evsrv_manager*>(this)); }
-        void accept() { evsrv_manager_accept(static_cast<evsrv_manager*>(this)); }
-        void start() {
+        virtual void bind() { evsrv_manager_bind(static_cast<evsrv_manager*>(this)); }
+        virtual void listen() { evsrv_manager_listen(static_cast<evsrv_manager*>(this)); }
+        virtual void accept() { evsrv_manager_accept(static_cast<evsrv_manager*>(this)); }
+        virtual void start() {
             bind();
             listen();
             accept();
         }
-        void stop() {
+        virtual void stop() {
             evsrv_manager_stop(static_cast<evsrv_manager*>(this));
         }
 

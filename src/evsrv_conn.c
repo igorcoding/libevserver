@@ -45,7 +45,7 @@ void evsrv_conn_start(evsrv_conn* self) {
     ev_io_start(self->srv->loop, &self->rw);
 
     ev_timer_init(&self->trw, _evsrv_conn_read_timeout_cb, self->srv->read_timeout, 0);
-    if (unlikely(self->srv->read_timeout > 0)) {
+    if (self->srv->read_timeout > 0) {
         ev_timer_start(self->srv->loop, &self->trw);
     }
 
@@ -63,8 +63,17 @@ void evsrv_conn_stop(evsrv_conn* self) {
     self->state = EVSRV_CONN_STOPPED;
 }
 
+void evsrv_conn_read_timer_again(evsrv_conn* self) {
+    if (self->srv->read_timeout > 0) {
+        ev_timer_again(self->srv->loop, &self->trw);
+    }
+}
+
+void evsrv_conn_read_timer_stop(evsrv_conn* self) {
+    evsrv_stop_timer(self->srv->loop, &self->trw);
+}
+
 void evsrv_conn_destroy(evsrv_conn* self) {
-    cdebug("[%d] evsrv_conn_destroy", self->info->sock);
     if (self->info->sock > -1) {
         close(self->info->sock);
         self->info->sock = -1;
@@ -100,7 +109,6 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
     evsrv* srv = self->srv;
     enum evsrv_conn_state prev_state = self->state;
 
-    cdebug("[%d] <evsrv_conn_close>", sock);
     self->state = EVSRV_CONN_CLOSING;
     evsrv_conn_stop(self);
     if (self->srv->on_conn_destroy) {
@@ -118,12 +126,11 @@ void evsrv_conn_close(evsrv_conn* self, int err) {
         srv->connections[sock] = NULL;
     }
     --srv->active_connections;
-    cdebug("[%d] </evsrv_conn_close>", sock);
 
     if (prev_state == EVSRV_CONN_PENDING_CLOSE &&
         srv->active_connections == 0 &&
         srv->state == EVSRV_GRACEFULLY_STOPPING) {
-        cdebug("after graceful shutdown");
+
         srv->state = EVSRV_STOPPED;
         srv->on_graceful_stop(srv);
     }
@@ -134,7 +141,6 @@ void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len) {
     if (len == 0) len = strlen(buf);
 
     if (conn->wuse) {
-        //cwarn("have wbuf, use it");
         if (conn->wuse == conn->wlen) {
             conn->wlen += 2;
             conn->wbuf = realloc(conn->wbuf, sizeof(struct iovec) * ( conn->wlen ));
@@ -178,8 +184,10 @@ void evsrv_conn_write(evsrv_conn* conn, const void* buffer, size_t len) {
         }
     }
 
-    conn->wlen = 2;
-    conn->wbuf = calloc(conn->wlen, sizeof(struct iovec));
+    if (unlikely(conn->wlen == 0)) {
+        conn->wlen = 2;
+        conn->wbuf = calloc(conn->wlen, sizeof(struct iovec));
+    }
     conn->wbuf[0].iov_base = memdup(buf + wr, len - wr);
     conn->wbuf[0].iov_len = len - wr;
     conn->wuse = 1;

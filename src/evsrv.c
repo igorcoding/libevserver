@@ -20,8 +20,12 @@ void evsrv_init(struct ev_loop* loop, evsrv* self, const char* host, const char*
     self->manager = NULL;
     self->id = 0;
     self->proto = EVSRV_PROTO_TCP;
-    self->host = host;
-    self->port = port;
+
+    self->host = malloc(sizeof(char) * (strlen(host) + 1));
+    self->port = malloc(sizeof(char) * (strlen(port) + 1));
+    strcpy(self->host, host);
+    strcpy(self->port, port);
+
     self->state = EVSRV_IDLE;
     self->read_timeout = 0;
     self->write_timeout = 1.0;
@@ -48,6 +52,8 @@ void evsrv_destroy(evsrv* self) {
     if (self->state != EVSRV_STOPPED) {
         evsrv_stop(self);
     }
+    free(self->host);
+    free(self->port);
     free(self->connections);
     self->manager = NULL;
 }
