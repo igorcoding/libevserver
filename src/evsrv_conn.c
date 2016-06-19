@@ -1,8 +1,8 @@
+#include "evsrv_conn.h"
+#include "evsrv.h"
+
 #include <unistd.h>
 #include <stdlib.h>
-#include "evsrv_conn.h"
-#include "util.h"
-#include "evsrv.h"
 
 static void _evsrv_conn_read_cb(struct ev_loop* loop, ev_io* w, int revents);
 static void _evsrv_conn_read_timeout_cb(struct ev_loop* loop, ev_timer* w, int revents);

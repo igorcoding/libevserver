@@ -27,10 +27,10 @@ enum evsrv_state {
     EVSRV_STOPPED
 };
 
-struct _evsrv_manager;
-struct _evsrv {
+struct evsrv_manager_s;
+struct evsrv_s {
     struct ev_loop* loop;
-    struct _evsrv_manager* manager;
+    struct evsrv_manager_s* manager;
     size_t id;
     enum evsrv_state state;
 
@@ -63,7 +63,7 @@ struct _evsrv {
     void* data;
 };
 
-typedef struct _evsrv evsrv;
+typedef struct evsrv_s evsrv;
 
 void evsrv_init(struct ev_loop* loop, evsrv* self, const char* host, const char* port);
 void evsrv_destroy(evsrv* self);

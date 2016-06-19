@@ -6,11 +6,12 @@
 #include <stdbool.h>
 
 #include "common.h"
+#include "util.h"
 
 EV_CPP(extern "C" {)
 
-typedef struct _evsrv_conn evsrv_conn;
-typedef struct _evsrv evsrv;
+typedef struct evsrv_conn_s evsrv_conn;
+typedef struct evsrv_s evsrv;
 
 typedef void (* evsrv_on_read_cb)(evsrv_conn*, ssize_t);
 typedef bool (* evsrv_conn_on_graceful_close_cb)(evsrv_conn*);
@@ -29,7 +30,7 @@ enum evsrv_conn_state {
     EVSRV_CONN_STOPPED,
 };
 
-struct _evsrv_conn {
+struct evsrv_conn_s {
     evsrv* srv;
     struct evsrv_conn_info* info;
     enum evsrv_conn_state state;

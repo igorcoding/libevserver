@@ -9,7 +9,10 @@
 #include "evsrv_manager.h"
 
 namespace ev {
+    class srv;
+
     class srv_manager : public evsrv_manager {
+        friend class srv;
     public:
         srv_manager(ev::loop_ref loop, evsrv_info* servers, size_t servers_count) {
             evsrv_manager_init(loop.raw_loop, static_cast<evsrv_manager*>(this), servers, servers_count);

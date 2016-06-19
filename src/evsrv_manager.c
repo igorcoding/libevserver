@@ -1,10 +1,9 @@
+#include "evsrv_manager.h"
+
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <sys/un.h>
 #include <assert.h>
-
-#include "evsrv_manager.h"
-#include "util.h"
 
 static void _evsrv_manager_graceful_stop_cb(evsrv* stopped_srv);
 
@@ -89,7 +88,6 @@ void evsrv_manager_stop(evsrv_manager* self) {
 }
 
 void evsrv_manager_graceful_stop(evsrv_manager* self, evsrv_manager_on_graceful_stop_cb cb) {
-    cdebug("evserver graceful stop started");
     self->state = EVSRV_MANAGER_GRACEFULLY_STOPPING;
     self->on_graceful_stop = cb;
     for (size_t i = 0; i < self->srvs_len; ++i) {

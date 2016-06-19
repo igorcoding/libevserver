@@ -5,16 +5,12 @@
 #include <ev++.h>
 #include <evsrv++.h>
 #include <evsrv_conn++.h>
-#include <evsrv_manager++.h>
 
 class my_conn : public ev::srv_conn {
 public:
     my_conn(ev::srv& s, evsrv_conn_info* info)
-            : srv_conn(s, info),
-              msg("Hello!!!\n")
+            : srv_conn(s, info)
     { }
-
-    std::string msg;
 };
 
 void on_started(ev::srv& srv);
@@ -58,7 +54,6 @@ void on_started(ev::srv& srv) {
 }
 
 ev::srv_conn* on_conn_create(ev::srv& srv, evsrv_conn_info* info) {
-    fprintf(stderr, "on_conn_create\n");
     my_conn* c = new my_conn(srv, info);
 
     char* buf = new char[1024];
@@ -70,7 +65,6 @@ ev::srv_conn* on_conn_create(ev::srv& srv, evsrv_conn_info* info) {
 
 void on_conn_destroy(ev::srv_conn& conn, int err) {
     my_conn& c = (my_conn&) conn;
-    fprintf(stderr, "on_conn_destroy\n");
     delete[] conn.rbuf();
     conn.set_rbuf(NULL, 0);
 
@@ -78,11 +72,14 @@ void on_conn_destroy(ev::srv_conn& conn, int err) {
 }
 
 void on_read(ev::srv_conn& conn, ssize_t nread) {
-    my_conn& c = (my_conn&) conn;
-    if (nread > 0) {
-        conn.write(c.msg.c_str());
-        conn.ruse() = 0;
+    if (nread <= 0) {
+        return;
     }
+    my_conn& c = (my_conn&) conn;
+
+    char* rbuf = c.rbuf();
+    c.write(rbuf, (size_t) nread);
+    c.ruse() = 0;
 }
 
 void sigint_cb(ev::sig& w, int revents) {

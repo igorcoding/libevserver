@@ -4,9 +4,6 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
-#include <stdint.h>
-
-#include "util.h"
 
 static void _evsrv_accept_cb(struct ev_loop* loop, ev_io* w, int revents);
 
@@ -228,7 +225,6 @@ void evsrv_stop(evsrv* self) {
 }
 
 void evsrv_graceful_stop(evsrv* self, evsrv_on_graceful_stop_cb cb) {
-    cdebug("graceful stop started");
     evsrv_stop_io(self->loop, &self->accept_rw);
 
     if (self->sock > 0) {
@@ -245,9 +241,6 @@ void evsrv_graceful_stop(evsrv* self, evsrv_on_graceful_stop_cb cb) {
         for (size_t i = 0; i < self->connections_len; ++i) {
             evsrv_conn* conn = self->connections[i];
             if (conn != NULL) {
-                int sock = conn->info->sock;
-                cdebug("[%d] <on_graceful_stop>", sock);
-
                 bool closed = true;
                 if (conn->on_graceful_close) {
                     closed = conn->on_graceful_close(conn);
@@ -257,8 +250,6 @@ void evsrv_graceful_stop(evsrv* self, evsrv_on_graceful_stop_cb cb) {
                 } else {
                     evsrv_conn_close(conn, 0);
                 }
-
-                cdebug("[%d] </on_graceful_stop>", sock);
 
                 if (closed && self->active_connections == 0) {
                     self->state = EVSRV_STOPPED;

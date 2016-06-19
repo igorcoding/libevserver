@@ -6,10 +6,10 @@
 #endif
 
 #include "evsrv_conn.h"
-#include "evsrv++.h"
 
 namespace ev {
-    class srv_conn : public evsrv_conn {
+    class srv_conn : private evsrv_conn {
+        friend class srv;
     public:
         srv_conn(ev::srv& s, evsrv_conn_info* info) {
             evsrv_conn_init(this, static_cast<evsrv*>(&s), info);

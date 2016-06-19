@@ -12,7 +12,8 @@
 
 namespace ev {
     class srv_conn;
-    class srv : public evsrv {
+    class srv : private evsrv {
+        friend class srv_conn;
     public:
         srv(ev::loop_ref loop, const char* host, const char* port) {
             evsrv_init(loop.raw_loop, this, host, port);

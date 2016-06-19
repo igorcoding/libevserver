@@ -1,7 +1,5 @@
 #include <stdio.h>
 
-
-#include "util.h"
 #include "evsrv_manager.h"
 #include <stdlib.h>
 #include <stddef.h>
@@ -72,10 +70,8 @@ void on_read(evsrv_conn* conn, ssize_t nread) {
 }
 
 static bool on_graceful_conn_close(evsrv_conn* conn) {
-    int sock = conn->info->sock;
-    cdebug("[%d] user: on_graceful_conn_close", sock);
+//    int sock = conn->info->sock;
     evsrv_conn_close(conn, 0);
-    cdebug("[%d] user: done on_graceful_conn_close", sock);
     return true;
 }
 
@@ -90,7 +86,6 @@ void on_started_my2(evsrv* srv) {
 
 
 static evsrv* on_my1_create(evsrv_manager* self, size_t id, evsrv_info* info) {
-    cdebug("create my1");
     my1_srv* s = (my1_srv*) malloc(sizeof(my1_srv));
     evsrv_init(self->loop, &s->srv, info->host, info->port);
     s->srv.backlog = 500;
@@ -101,7 +96,6 @@ static evsrv* on_my1_create(evsrv_manager* self, size_t id, evsrv_info* info) {
 }
 
 static void on_my1_destroy(evsrv* self) {
-    cdebug("destroy my1");
     my1_srv* s = (my1_srv*) self;
     evsrv_destroy(&s->srv);
     free(s);
@@ -109,7 +103,6 @@ static void on_my1_destroy(evsrv* self) {
 
 
 static evsrv* on_my2_create(evsrv_manager* self, size_t id, evsrv_info* info) {
-    cdebug("create my2");
     my2_srv* s = (my2_srv*) malloc(sizeof(my1_srv));
     evsrv_init(self->loop, &s->srv, info->host, info->port);
     s->srv.backlog = SOMAXCONN;
@@ -120,7 +113,6 @@ static evsrv* on_my2_create(evsrv_manager* self, size_t id, evsrv_info* info) {
 }
 
 static void on_my2_destroy(evsrv* self) {
-    cdebug("destroy my2");
     my2_srv* s = (my2_srv*) self;
     evsrv_destroy(&s->srv);
     free(s);

@@ -10,14 +10,14 @@
 
 EV_CPP(extern "C" {)
 
-typedef struct _evsrv_manager evsrv_manager;
-typedef struct _evsrv_info evsrv_info;
+typedef struct evsrv_manager_s evsrv_manager;
+typedef struct evsrv_info_s evsrv_info;
 
 typedef void   (* evsrv_manager_on_started_cb)(evsrv_manager*);
 typedef evsrv* (* evsrv_manger_on_create_t)(evsrv_manager*, size_t, evsrv_info*);
 typedef void   (* evsrv_manager_on_graceful_stop_cb)(evsrv_manager*);
 
-struct _evsrv_info {
+struct evsrv_info_s {
     // enum evsrv_proto proto;
     char* host;
     char* port;
@@ -35,7 +35,7 @@ enum evsrv_manager_state {
     EVSRV_MANAGER_STOPPED
 };
 
-struct _evsrv_manager {
+struct evsrv_manager_s {
     struct ev_loop* loop;
     enum evsrv_manager_state state;
 

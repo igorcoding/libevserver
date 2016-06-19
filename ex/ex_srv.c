@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-#include "util.h"
 #include "evsrv_manager.h"
 #include <stdlib.h>
 #include <stddef.h>
