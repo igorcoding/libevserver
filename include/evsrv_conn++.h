@@ -6,6 +6,7 @@
 #endif
 
 #include "evsrv_conn.h"
+#include "evsrv++.h"
 
 namespace ev {
     class srv_conn : private evsrv_conn {
